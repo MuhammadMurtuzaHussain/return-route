@@ -66,7 +66,7 @@ export function RouteView({ plan, onHaul }: { plan: Planned; onHaul: () => void 
   };
 
   return (
-    <div className="flex flex-col pb-28">
+    <div className="flex flex-col">
       <RouteMap plan={plan} className="-mx-4 h-[52dvh] min-h-72 bg-sunk" />
 
       <div className="relative -mx-4 -mt-6 rounded-t-[20px] bg-bg px-4 pt-6">

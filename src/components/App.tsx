@@ -16,6 +16,7 @@ import {
 import { DEFAULT_COUNTRY } from "@/lib/countries";
 import { DEFAULT_GOAL, DEFAULT_SETTINGS, DEFAULT_TOTALS, learn, useStored } from "@/lib/client/store";
 import type { Tier } from "@/lib/ai/schema";
+import { Footer } from "./Footer";
 import { GoScreen, type Where } from "./GoScreen";
 import { HaulScreen, type LoggedHaul } from "./HaulScreen";
 import { Planning } from "./Planning";
@@ -168,6 +169,8 @@ export function App() {
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {screen !== "planning" && <Footer className={screen === "route" ? "mb-24" : ""} />}
 
       <SettingsSheet
         open={settingsOpen}
