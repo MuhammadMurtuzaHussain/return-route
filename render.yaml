@@ -1,0 +1,25 @@
+# Hosted demo on Render. The server's Gemma runs on Google AI Studio (Render has
+# no GPUs); the phone tier runs Gemma 4 E2B in the visitor's own browser either way.
+# For a fully private setup, run Return Route locally with Ollama instead.
+services:
+  - type: web
+    name: return-route
+    runtime: node
+    plan: free
+    # Render's /usr/bin is read-only, so call pnpm through corepack instead of `corepack enable`.
+    buildCommand: corepack pnpm install --frozen-lockfile && corepack pnpm build
+    startCommand: corepack pnpm start
+    healthCheckPath: /api/status
+    envVars:
+      - key: COREPACK_ENABLE_DOWNLOAD_PROMPT
+        value: "0"
+      - key: MODEL_PROVIDER
+        value: google
+      - key: GOOGLE_MODEL
+        value: gemma-4-26b-a4b-it
+      - key: GOOGLE_GENERATIVE_AI_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_EDGE_MODEL
+        value: onnx-community/gemma-4-E2B-it-ONNX
+      - key: SITE_URL
+        value: https://return-route.onrender.com

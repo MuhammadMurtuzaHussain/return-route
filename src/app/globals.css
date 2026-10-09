@@ -1,0 +1,104 @@
+@import "tailwindcss";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+/* Forest palette: deep green on misty off-white, one amber accent reserved for money. */
+:root {
+  --bg: #edf1ec;
+  --surface: #f7f9f5;
+  --sunk: #e3e9e2;
+  --ink: #14231a;
+  --muted: #526157;
+  --line: #d3dbd1;
+  --forest: #1f4d33;
+  --on-forest: #f2f6f1;
+  --money: #8a5a0a;
+  --money-soft: #f3e3c2;
+  --danger: #a2361f;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1611;
+    --surface: #142019;
+    --sunk: #0a110d;
+    --ink: #e5ece4;
+    --muted: #98a99d;
+    --line: #243329;
+    --forest: #9fd2b0;
+    --on-forest: #0d1611;
+    --money: #f0bb55;
+    --money-soft: #3a2c10;
+    --danger: #f08a6f;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0d1611;
+  --surface: #142019;
+  --sunk: #0a110d;
+  --ink: #e5ece4;
+  --muted: #98a99d;
+  --line: #243329;
+  --forest: #9fd2b0;
+  --on-forest: #0d1611;
+  --money: #f0bb55;
+  --money-soft: #3a2c10;
+  --danger: #f08a6f;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-sunk: var(--sunk);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-forest: var(--forest);
+  --color-on-forest: var(--on-forest);
+  --color-money: var(--money);
+  --color-money-soft: var(--money-soft);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-geist);
+  --font-mono: var(--font-geist-mono);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+body {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--forest);
+  outline-offset: 2px;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* MapLibre controls in our palette. */
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent) !important;
+  color: var(--muted);
+}
+.maplibregl-ctrl-attrib a {
+  color: var(--muted) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
