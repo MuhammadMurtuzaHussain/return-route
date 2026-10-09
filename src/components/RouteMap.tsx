@@ -19,13 +19,19 @@ function prefersDark() {
 
 function marker(label: string, kind: "start" | "stop" | "end") {
   const el = document.createElement("div");
-  const base =
-    "display:grid;place-items:center;font:600 12px/1 var(--font-geist),system-ui;border-radius:999px;box-shadow:0 2px 8px rgb(13 22 17 / .25);";
-  if (kind === "start") el.style.cssText = `${base}width:14px;height:14px;background:var(--surface);border:3px solid var(--forest);`;
-  else if (kind === "end") el.style.cssText = `${base}width:28px;height:28px;background:var(--money);color:var(--surface);`;
-  else el.style.cssText = `${base}width:26px;height:26px;background:var(--forest);color:var(--on-forest);`;
-  if (kind !== "start") el.textContent = label;
   el.setAttribute("aria-hidden", "true");
+  if (kind === "start") {
+    el.style.cssText = "width:16px;height:16px;border-radius:999px;background:var(--surface);border:4px solid var(--post);box-shadow:0 0 0 2px var(--surface);";
+    return el;
+  }
+  // Diamond waymarks: yellow for stops, the post colour for where you cash in.
+  el.style.cssText = "width:30px;height:30px;display:grid;place-items:center;position:relative;";
+  const d = document.createElement("span");
+  d.style.cssText = `position:absolute;inset:4px;transform:rotate(45deg);border-radius:4px;background:${kind === "stop" ? "var(--mark)" : "var(--post)"};box-shadow:0 0 0 2px var(--surface);`;
+  const t = document.createElement("span");
+  t.textContent = label;
+  t.style.cssText = `position:relative;font:600 12px/1 var(--font-plex-mono),monospace;color:${kind === "stop" ? "var(--on-mark)" : "var(--mark)"};`;
+  el.append(d, t);
   return el;
 }
 
@@ -40,7 +46,8 @@ export function RouteMap({ plan, className }: { plan: PlanResult; className?: st
       if (cancelled || !box.current) return;
       const dark = prefersDark();
       const css = getComputedStyle(document.documentElement);
-      const line = css.getPropertyValue("--forest").trim() || "#1f4d33";
+      const line = css.getPropertyValue("--mark").trim() || "#e5b53b";
+      const casing = css.getPropertyValue("--post").trim() || "#1d1d1a";
 
       const m = new maplibre.Map({
         container: box.current,
@@ -59,12 +66,12 @@ export function RouteMap({ plan, className }: { plan: PlanResult; className?: st
           type: "geojson",
           data: { type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: plan.route.line.map((p) => [p.lon, p.lat]) } },
         });
-        m.addLayer({ id: "route-casing", type: "line", source: "route", paint: { "line-color": dark ? "#0d1611" : "#ffffff", "line-width": 8, "line-opacity": 0.9 }, layout: { "line-cap": "round", "line-join": "round" } });
+        m.addLayer({ id: "route-casing", type: "line", source: "route", paint: { "line-color": casing, "line-width": 9, "line-opacity": 0.95 }, layout: { "line-cap": "round", "line-join": "round" } });
         m.addLayer({
           id: "route",
           type: "line",
           source: "route",
-          paint: { "line-color": line, "line-width": 4.5, ...(plan.route.from === "straight" ? { "line-dasharray": [1.5, 1.5] } : {}) },
+          paint: { "line-color": line, "line-width": 5, ...(plan.route.from === "straight" ? { "line-dasharray": [1.5, 1.5] } : {}) },
           layout: { "line-cap": "round", "line-join": "round" },
         });
       };

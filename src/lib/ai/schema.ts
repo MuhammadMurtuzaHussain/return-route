@@ -4,7 +4,7 @@ import { z } from "zod";
 
 /** The planner picks stops from a list it is given; it never invents places. */
 export const planPickSchema = z.object({
-  title: z.string().describe("A short, friendly name for this walk, max 6 words"),
+  title: z.string().describe("The walk named after a place on it, 2 to 4 words"),
   stops: z
     .array(z.object({ id: z.string(), why: z.string().describe("One short sentence: why this stop, today") }))
     .max(3),

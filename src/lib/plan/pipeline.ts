@@ -5,7 +5,7 @@ import { estimate, type Estimate } from "./estimate";
 import { googleMapsUrl } from "./export";
 import { haversine } from "./geo";
 import type { RouteGeometry } from "./route";
-import { buildHotspots } from "./score";
+import { KIND_LABEL, buildHotspots } from "./score";
 import { candidateReturnPoints, chooseRoute, reachable, stopsFor } from "./select";
 import type { AreaData, Context, Hotspot, LatLng, ReturnPoint, Weather } from "./types";
 
@@ -56,7 +56,7 @@ export function prepare(area: AreaData, req: PlanRequest, scheme: Scheme, weathe
   const returnPoints = rps.map((r) => ({ ...r, distM: dist(r) }));
 
   const first = hotspots.find((h) => h.id === fallback.stopIds[0]);
-  const defaultTitle = first ? `${req.minutes} minutes via ${shortName(first.label)}` : `${req.minutes}-minute walk`;
+  const defaultTitle = first ? `${shortName(first.label)} loop` : `${req.minutes}-minute walk`;
   const startNear = nearestPlace(area, req.start);
 
   return {
@@ -85,7 +85,13 @@ export function prepare(area: AreaData, req: PlanRequest, scheme: Scheme, weathe
   };
 }
 
-const shortName = (label: string) => label.split(",")[0];
+const GENERIC = new Set(Object.values(KIND_LABEL).flat());
+
+/** "Picnic tables, College Park" → "College Park"; "Kennedy Park Playground, Eyre Square" → "Kennedy Park Playground". */
+export const shortName = (label: string) => {
+  const [first, ...rest] = label.split(", ");
+  return GENERIC.has(first) && rest.length ? rest.join(", ") : first;
+};
 
 export const DEFAULT_LOOK_FOR = "Check under benches, along hedges and around the bins as you go.";
 export const DEFAULT_TIP = "Ground litter only, gloves on, and leave anything broken.";

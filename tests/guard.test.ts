@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { extractJson, guardPlan, haulTotals, stripMoney } from "@/lib/ai/guard";
+import { extractJson, guardPlan, haulTotals, namesAPlace, receiptLines, stripMoney } from "@/lib/ai/guard";
 import { buildHotspots } from "@/lib/plan/score";
 import { chooseRoute } from "@/lib/plan/select";
 import { SCHEMES } from "@/lib/countries";
@@ -80,5 +80,31 @@ describe("extractJson", () => {
     expect(extractJson('Sure! ```json\n{"a": {"b": "}"}}\n``` hope that helps')).toEqual({ a: { b: "}" } });
     expect(extractJson("no json here")).toBeNull();
     expect(extractJson('{"a": 1')).toBeNull();
+  });
+});
+
+describe("receipt lines", () => {
+  it("groups by size band and status, priced from the table", () => {
+    const lines = receiptLines(
+      [
+        { material: "can", ml: 330, mark: "yes", damaged: false },
+        { material: "can", ml: 330, mark: "yes", damaged: false },
+        { material: "pet", ml: 1500, mark: "yes", damaged: false },
+        { material: "can", ml: 330, mark: "yes", damaged: true },
+        { material: "glass", ml: 330, mark: "yes", damaged: false },
+      ],
+      SCHEMES.ie,
+    );
+    expect(lines[0]).toEqual({ label: "Bottle >500ML", qty: 1, unit: 0.25, amount: 0.25, status: "paid" });
+    expect(lines[1]).toEqual({ label: "Can ≤500ML", qty: 2, unit: 0.15, amount: 0.3, status: "paid" });
+    expect(lines.find((l) => l.status === "damaged")!.amount).toBe(0);
+    expect(lines.find((l) => l.status === "not_in_scheme")!.label).toBe("Glass");
+  });
+});
+
+describe("titles", () => {
+  it("keeps titles that name a real place and drops generic ones", () => {
+    expect(namesAPlace("Eyre Square loop", ["Kennedy Park Playground, Eyre Square"])).toBe("Eyre Square loop");
+    expect(namesAPlace("Park Collections", ["Kennedy Park Playground, Eyre Square"])).toBe("");
   });
 });

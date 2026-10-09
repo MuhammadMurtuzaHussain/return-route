@@ -6,7 +6,7 @@ import { estimate } from "@/lib/plan/estimate";
 import { googleMapsUrl, toGpx } from "@/lib/plan/export";
 import { decodePolyline, haversine } from "@/lib/plan/geo";
 import { parseElements } from "@/lib/plan/overpass";
-import { composeBriefing } from "@/lib/plan/pipeline";
+import { composeBriefing, shortName } from "@/lib/plan/pipeline";
 import { SCHEMES, depositFor, typicalDeposit } from "@/lib/countries";
 import type { AreaData, Context } from "@/lib/plan/types";
 
@@ -146,5 +146,12 @@ describe("overpass parsing", () => {
     expect(a.sources[0].kind).toBe("offlicence");
     expect(a.parks[0].name).toBe("Terryland Forest Park");
     expect(a.returnPoints.find((r) => r.confidence === "machine")!.name).toBe("Aldi return machine");
+  });
+});
+
+describe("short names", () => {
+  it("prefers the place over a generic feature name", () => {
+    expect(shortName("Picnic tables, College Park")).toBe("College Park");
+    expect(shortName("Kennedy Park Playground, Eyre Square")).toBe("Kennedy Park Playground");
   });
 });

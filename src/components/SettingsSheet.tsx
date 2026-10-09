@@ -74,17 +74,17 @@ export function SettingsSheet({
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-title"
-            className="relative max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-[28px] bg-bg px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 sm:rounded-[28px]"
+            className="relative max-h-[88dvh] w-full max-w-lg overflow-y-auto rounded-t-[20px] bg-bg px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-5 sm:rounded-[20px]"
             initial={reduce ? false : { y: 40 }}
             animate={{ y: 0 }}
             exit={reduce ? undefined : { y: 40 }}
             transition={{ type: "spring", stiffness: 260, damping: 30 }}
           >
             <div className="mb-5 flex items-center justify-between">
-              <h2 id="settings-title" className="text-xl font-semibold tracking-tight">
+              <h2 id="settings-title" className="sign text-[2rem] font-bold uppercase leading-none">
                 Settings
               </h2>
-              <button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-full hover:bg-sunk" aria-label="Close">
+              <button onClick={onClose} className="grid h-10 w-10 place-items-center rounded-xl hover:bg-surface" aria-label="Close">
                 <X size={20} />
               </button>
             </div>
@@ -95,7 +95,7 @@ export function SettingsSheet({
 
               <button
                 onClick={() => setSettings({ ...settings, engine: "server" })}
-                className={`flex items-start gap-3 rounded-[20px] border p-4 text-left transition ${settings.engine === "server" ? "border-forest bg-surface" : "border-line hover:bg-surface"}`}
+                className={`flex items-start gap-3 rounded-xl border-2 p-4 text-left transition ${settings.engine === "server" ? "border-mark bg-surface" : "border-line hover:bg-surface"}`}
               >
                 <ServerIcon size={22} className="mt-0.5 shrink-0" />
                 <span className="flex flex-col gap-0.5">
@@ -107,7 +107,7 @@ export function SettingsSheet({
                 </span>
               </button>
 
-              <div className={`flex flex-col gap-3 rounded-[20px] border p-4 transition ${settings.engine === "edge" ? "border-forest bg-surface" : "border-line"}`}>
+              <div className={`flex flex-col gap-3 rounded-xl border-2 p-4 transition ${settings.engine === "edge" ? "border-mark bg-surface" : "border-line"}`}>
                 <div className="flex items-start gap-3">
                   <DeviceMobile size={22} className="mt-0.5 shrink-0" />
                   <span className="flex flex-col gap-0.5">
@@ -117,12 +117,12 @@ export function SettingsSheet({
                     </span>
                   </span>
                 </div>
-                {support && !support.ok && <p className="text-sm text-danger">{support.reason}</p>}
-                {edgeError && <p className="text-sm text-danger">{edgeError}</p>}
+                {support && !support.ok && <p className="text-sm text-mark-ink">{support.reason}</p>}
+                {edgeError && <p className="text-sm text-mark-ink">{edgeError}</p>}
                 {loading && (
                   <div className="flex flex-col gap-1.5" aria-live="polite">
                     <div className="h-1.5 overflow-hidden rounded-full bg-sunk">
-                      <div className="h-full rounded-full bg-forest transition-[width]" style={{ width: `${pct}%` }} />
+                      <div className="h-full rounded-full bg-mark transition-[width]" style={{ width: `${pct}%` }} />
                     </div>
                     <span className="tabular font-mono text-[13px] text-muted">
                       {progress?.total ? `${(progress.loaded / 1e9).toFixed(2)} of ${(progress.total / 1e9).toFixed(2)} GB` : "Starting…"}
@@ -130,9 +130,9 @@ export function SettingsSheet({
                   </div>
                 )}
                 {settings.engine === "edge" && edge.loaded ? (
-                  <span className="text-sm font-medium text-forest">Running on this phone.</span>
+                  <span className="text-sm font-medium text-mark-ink">Running on this phone.</span>
                 ) : (
-                  <Button variant="secondary" onClick={useEdge} disabled={!support?.ok || loading}>
+                  <Button variant="post" onClick={useEdge} disabled={!support?.ok || loading}>
                     {loading ? "Loading Gemma…" : edge.loaded ? "Use it" : "Download and use"}
                   </Button>
                 )}
@@ -147,7 +147,7 @@ export function SettingsSheet({
                 id="country"
                 value={settings.country ?? ""}
                 onChange={(e) => setSettings({ ...settings, country: e.target.value || null })}
-                className="min-h-12 rounded-full border border-line bg-surface px-4 text-[15px]"
+                className="min-h-12 rounded-xl border border-line bg-surface px-4 text-[15px]"
               >
                 <option value="">Work it out from where I am</option>
                 {Object.values(SCHEMES)
@@ -170,7 +170,7 @@ export function SettingsSheet({
                   value={goal.label}
                   maxLength={40}
                   onChange={(e) => setGoal({ ...goal, label: e.target.value })}
-                  className="min-h-12 rounded-full border border-line bg-surface px-4 text-[15px]"
+                  className="min-h-12 rounded-xl border border-line bg-surface px-4 text-[15px]"
                 />
               </div>
               <div className="flex flex-col gap-2">
@@ -184,7 +184,7 @@ export function SettingsSheet({
                   inputMode="numeric"
                   value={goal.amount}
                   onChange={(e) => setGoal({ ...goal, amount: Math.max(1, Number(e.target.value) || 0) })}
-                  className="tabular min-h-12 rounded-full border border-line bg-surface px-4 font-mono text-[15px]"
+                  className="tabular min-h-12 rounded-xl border border-line bg-surface px-4 font-mono text-[15px]"
                 />
               </div>
             </section>

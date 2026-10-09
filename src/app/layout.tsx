@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Archivo, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
-const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// Archivo's width axis gives us trail-sign condensed and readable body from one family.
+const archivo = Archivo({ variable: "--font-archivo", subsets: ["latin", "latin-ext"], axes: ["wdth"] });
+const plexMono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500", "600"] });
 
 const description =
   "Plan a walk that pays: a loop through the spots where cans and bottles get left behind, ending at a deposit return machine. Powered by open-weight Gemma, on your phone if you like.";
@@ -23,14 +24,14 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#edf1ec" },
-    { media: "(prefers-color-scheme: dark)", color: "#0d1611" },
+    { media: "(prefers-color-scheme: light)", color: "#f1f1ed" },
+    { media: "(prefers-color-scheme: dark)", color: "#121210" },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en-IE" className={`${geist.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
+    <html lang="en-IE" className={`${archivo.variable} ${plexMono.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{

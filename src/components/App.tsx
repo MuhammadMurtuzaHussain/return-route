@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { ArrowLeft } from "@phosphor-icons/react";
+import { ArrowLeft, Camera } from "@phosphor-icons/react";
 import {
   PlanError,
   checkHaulOnEdge,
@@ -38,6 +38,8 @@ export function App() {
   const [historyBox, setHistoryBox] = useStored<{ spots: Record<string, number> }>("history", { spots: {} });
   const [lastPlan, setLastPlan] = useStored<{ plan: Planned | null }>("last-plan", { plan: null });
   const [donateDefault, setDonateDefault] = useState(false);
+  const [minutes, setMinutes] = useState(60);
+  const [flash, setFlash] = useState(false);
 
   useEffect(() => {
     fetch("/api/status")
@@ -62,6 +64,7 @@ export function App() {
     async ({ minutes, intent, donate, where }: { minutes: number; intent: string; donate: boolean; where: Where }) => {
       setError(null);
       setDonateDefault(donate);
+      setMinutes(minutes);
       setScreen("planning");
       try {
         const input = { start: { lat: where.lat, lon: where.lon }, minutes, intent, donate, history: historyBox.spots, country: settings.country ?? undefined };
@@ -103,6 +106,9 @@ export function App() {
     setLastPlan({ plan: null });
     setPlan(null);
     setScreen("go");
+    window.scrollTo({ top: 0 });
+    setFlash(true);
+    setTimeout(() => setFlash(false), 1600);
   };
 
   const fade = reduce
@@ -115,13 +121,16 @@ export function App() {
         {screen === "route" || screen === "haul" ? (
           <button
             onClick={() => setScreen(screen === "haul" ? "route" : "go")}
-            className="-ml-2 inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[15px] text-muted hover:text-ink"
+            className="-ml-2 inline-flex min-h-10 items-center gap-1.5 rounded-xl px-2 text-[15px] font-medium text-muted hover:text-ink"
           >
             <ArrowLeft size={18} />
             {screen === "haul" ? "Route" : "New walk"}
           </button>
         ) : (
-          <span className="text-[17px] font-semibold tracking-tight">Return Route</span>
+          <span className="flex items-center gap-2.5">
+            <span className="blade h-5 w-8 bg-mark [clip-path:polygon(0_0,calc(100%-8px)_0,100%_50%,calc(100%-8px)_100%,0_100%)]" aria-hidden="true" />
+            <span className="semi text-[18px] font-bold uppercase tracking-tight">Return Route</span>
+          </span>
         )}
         <TierPill tier={tier} onClick={() => setSettingsOpen(true)} />
       </nav>
@@ -133,19 +142,20 @@ export function App() {
               <>
                 {plan && (
                   <button
-                    onClick={() => setScreen("route")}
-                    className="mb-6 flex w-full items-center justify-between gap-3 rounded-[20px] border border-line bg-surface px-4 py-3 text-left text-[15px] hover:bg-sunk"
+                    onClick={() => setScreen("haul")}
+                    className="mb-8 flex w-full items-center justify-between gap-3 rounded-xl bg-post px-4 py-3.5 text-left text-on-post transition active:scale-[0.99]"
                   >
-                    <span>
-                      Back from <span className="font-medium">{plan.title}</span>?
+                    <span className="flex flex-col">
+                      <span className="font-semibold">Back from {plan.title.toLowerCase()}?</span>
+                      <span className="text-[14px] opacity-70">Photograph your haul for the voucher.</span>
                     </span>
-                    <span className="text-forest">Open</span>
+                    <Camera size={22} />
                   </button>
                 )}
-                <GoScreen onPlan={startPlan} totals={totals} goal={goal} donateDefault={donateDefault} error={error} />
+                <GoScreen onPlan={startPlan} totals={totals} goal={goal} donateDefault={donateDefault} error={error} flash={flash} />
               </>
             )}
-            {screen === "planning" && <Planning tier={tier} />}
+            {screen === "planning" && <Planning tier={tier} minutes={minutes} />}
             {screen === "route" && plan && <RouteView plan={plan} onHaul={() => setScreen("haul")} />}
             {screen === "haul" && (
               <HaulScreen
@@ -153,7 +163,6 @@ export function App() {
                 donateDefault={plan?.donate ?? donateDefault}
                 check={checkHaul}
                 onLog={logHaul}
-                onCancel={() => setScreen(plan ? "route" : "go")}
               />
             )}
           </motion.div>

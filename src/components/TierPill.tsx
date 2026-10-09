@@ -4,7 +4,7 @@ import { Cloud, DeviceMobile, Laptop } from "@phosphor-icons/react";
 import type { Tier } from "@/lib/ai/schema";
 
 const ICON = { edge: DeviceMobile, local: Laptop, cloud: Cloud };
-const WHERE = { edge: "on this phone", local: "on my laptop", cloud: "in the cloud" };
+const WHERE = { edge: "phone", local: "laptop", cloud: "cloud" };
 
 /** Where Gemma is running right now. Tapping it opens settings. */
 export function TierPill({ tier, onClick }: { tier: Tier; onClick: () => void }) {
@@ -12,13 +12,11 @@ export function TierPill({ tier, onClick }: { tier: Tier; onClick: () => void })
   return (
     <button
       onClick={onClick}
-      className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-line bg-surface px-3 text-[13px] text-muted transition hover:text-ink active:scale-[0.98]"
-      aria-label={`Gemma is running ${WHERE[tier]}. Change in settings.`}
+      className="inline-flex min-h-10 items-center gap-2 rounded-xl px-2.5 text-[13px] text-muted transition hover:bg-surface hover:text-ink active:scale-[0.98]"
+      aria-label={`Gemma is running on the ${WHERE[tier]}. Open settings.`}
     >
-      <Icon size={16} weight="bold" />
-      <span>
-        Gemma <span className="text-ink">{WHERE[tier]}</span>
-      </span>
+      <Icon size={17} />
+      <span className="font-mono uppercase tracking-wide">Gemma · {WHERE[tier]}</span>
     </button>
   );
 }

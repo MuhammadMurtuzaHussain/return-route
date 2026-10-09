@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { Camera, DownloadSimple, NavigationArrow, SpeakerHigh, SpeakerSlash } from "@phosphor-icons/react";
+import { Camera, DownloadSimple, NavigationArrow, SpeakerHigh, Stop } from "@phosphor-icons/react";
 import { formatMoney } from "@/lib/countries";
 import { toGpx } from "@/lib/plan/export";
 import type { Planned } from "@/lib/ai/engine";
 import { RouteMap } from "./RouteMap";
-import { Button, LinkButton } from "./ui";
+import { LinkButton, Waymark } from "./ui";
 
 function speak(text: string, onEnd: () => void) {
   const synth = window.speechSynthesis;
@@ -26,7 +26,7 @@ function downloadGpx(plan: Planned) {
     plan.title,
     [
       ...plan.stops.map((s, i) => ({ lat: s.lat, lon: s.lon, name: `${i + 1}. ${s.label}`, desc: s.why })),
-      { lat: plan.returnPoint.lat, lon: plan.returnPoint.lon, name: `Return: ${plan.returnPoint.name}` },
+      { lat: plan.returnPoint.lat, lon: plan.returnPoint.lon, name: `Cash in: ${plan.returnPoint.name}` },
     ],
     plan.route.line,
   );
@@ -38,104 +38,133 @@ function downloadGpx(plan: Planned) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+const TIER_WORDS = { edge: "on this phone", local: "on a laptop", cloud: "in the cloud" } as const;
+
 export function RouteView({ plan, onHaul }: { plan: Planned; onHaul: () => void }) {
   const reduce = useReducedMotion();
   const [speaking, setSpeaking] = useState(false);
-  const canSpeak = typeof window !== "undefined" && "speechSynthesis" in window;
-  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+  const [canSpeak, setCanSpeak] = useState(false);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- feature detection after mount
+    setCanSpeak("speechSynthesis" in window);
+    return () => window.speechSynthesis?.cancel();
+  }, []);
 
   const e = plan.estimate;
-  const money = `${formatMoney(e.moneyLow, e.currency)} to ${formatMoney(e.moneyHigh, e.currency)}`;
+  const walkMinutes = plan.route.minutes + plan.stops.length * 5;
+  const rise = (i: number) =>
+    reduce ? {} : { initial: { opacity: 0, y: 14 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.12 + 0.07 * i, duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } };
 
-  const item = (i: number) =>
-    reduce ? {} : { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.08 * i, duration: 0.45, ease: [0.16, 1, 0.3, 1] as const } };
+  const toggleBriefing = () => {
+    if (speaking) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
+    } else {
+      setSpeaking(true);
+      speak(plan.briefing, () => setSpeaking(false));
+    }
+  };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="-mx-4 overflow-hidden sm:mx-0 sm:rounded-[20px]">
-        <RouteMap plan={plan} className="h-[42dvh] min-h-64 w-full bg-sunk" />
+    <div className="flex flex-col pb-28">
+      <RouteMap plan={plan} className="-mx-4 h-[52dvh] min-h-72 bg-sunk" />
+
+      <div className="relative -mx-4 -mt-6 rounded-t-[20px] bg-bg px-4 pt-6">
+        <motion.header {...rise(0)} className="flex flex-col gap-3">
+          <h1 className="sign text-[2.7rem] font-bold uppercase leading-[0.95]">{plan.title}</h1>
+          <dl className="grid grid-cols-3 border-y border-line font-mono text-[12px] uppercase">
+            {[
+              ["Walk", `${plan.route.km.toFixed(1)} km`],
+              ["Time", `~${walkMinutes} min`],
+              ["Stops", String(plan.stops.length)],
+            ].map(([k, v], i) => (
+              <div key={k} className={`flex flex-col gap-1 py-3 ${i ? "border-l border-line pl-3" : ""}`}>
+                <dt className="text-muted">{k}</dt>
+                <dd className="tabular text-[17px] font-semibold text-ink">{v}</dd>
+              </div>
+            ))}
+          </dl>
+        </motion.header>
+
+        <motion.section {...rise(1)} aria-label="Estimate" className="mt-7">
+          <p className="sign text-[3.1rem] font-bold leading-none">
+            <span className="tabular">{formatMoney(e.moneyLow, e.currency)}</span>
+            <span className="semi mx-2 text-[1.6rem] font-medium text-muted">to</span>
+            <span className="tabular bg-mark px-1.5 text-on-mark [box-decoration-break:clone]">{formatMoney(e.moneyHigh, e.currency)}</span>
+          </p>
+          <p className="mt-3 max-w-[38ch] text-[15px] leading-relaxed text-muted">
+            Roughly {e.containersLow} to {e.containersHigh} containers{plan.donate ? ", all of it for charity" : ""}. A guess, and it gets sharper every walk you log.
+          </p>
+        </motion.section>
+
+        <motion.ol {...rise(2)} className="relative mt-8 flex flex-col gap-6">
+          <span className="absolute bottom-6 left-[13px] top-4 border-l-2 border-dashed border-line" aria-hidden="true" />
+          {plan.stops.map((s, i) => (
+            <li key={s.id} className="relative grid grid-cols-[28px_1fr] gap-4">
+              <Waymark>{i + 1}</Waymark>
+              <div className="flex flex-col gap-1 pt-0.5">
+                <span className="text-[17px] font-semibold leading-snug">{s.label}</span>
+                <span className="text-[15px] leading-relaxed text-muted">{s.why}</span>
+              </div>
+            </li>
+          ))}
+          <li className="relative grid grid-cols-[28px_1fr] gap-4">
+            <Waymark tone="post">€</Waymark>
+            <div className="flex flex-col gap-1 pt-0.5">
+              <span className="text-[17px] font-semibold leading-snug">Cash in at {plan.returnPoint.name}</span>
+              <span className="text-[15px] leading-relaxed text-muted">
+                {plan.returnPoint.confidence === "machine" ? "A return machine on the map." : "Most big supermarkets take returns. Ask at the door if you can't see the machine."}
+                {plan.donate ? " Look for the donate button." : ""}
+              </span>
+            </div>
+          </li>
+        </motion.ol>
+
+        <motion.figure {...rise(3)} className="mt-9 border-l-2 border-mark pl-4">
+          <blockquote className="text-[15px] leading-relaxed">{plan.briefing}</blockquote>
+          <figcaption className="mt-2 font-mono text-[12px] uppercase text-muted">
+            {plan.model} {TIER_WORDS[plan.tier]}
+            {plan.gemmaMs ? `, ${(plan.gemmaMs / 1000).toFixed(1)}s` : ""}
+          </figcaption>
+        </motion.figure>
+
+        <motion.button
+          {...rise(4)}
+          onClick={onHaul}
+          className="mt-9 flex w-full items-center justify-between gap-3 rounded-xl border border-line px-4 py-4 text-left transition hover:bg-surface active:scale-[0.99]"
+        >
+          <span className="flex flex-col">
+            <span className="font-semibold">Back with a bag?</span>
+            <span className="text-[14px] text-muted">Photograph it and Gemma prints your voucher.</span>
+          </span>
+          <Camera size={24} />
+        </motion.button>
       </div>
 
-      <motion.header {...item(0)} className="flex flex-col gap-1">
-        <h1 className="text-[2rem] font-semibold leading-tight tracking-tight">{plan.title}</h1>
-        <p className="text-muted">
-          <span className="tabular font-mono">{plan.route.km.toFixed(1)} km</span>, about{" "}
-          <span className="tabular font-mono">{plan.route.minutes + plan.stops.length * 5} min</span> with stops.{" "}
-          {plan.weather?.summary && <span>{plan.weather.summary}.</span>}
-        </p>
-      </motion.header>
-
-      <motion.section {...item(1)} aria-label="Estimate" className="flex flex-col gap-1 rounded-[20px] bg-money-soft px-5 py-4">
-        <span className="tabular font-mono text-3xl font-semibold tracking-tight text-money">{money}</span>
-        <span className="text-sm text-ink/80">
-          A guess, not a promise: {e.containersLow} to {e.containersHigh} containers.
-          {plan.donate ? " All of it going to charity." : ""} It gets sharper every walk you log.
-        </span>
-      </motion.section>
-
-      <motion.ol {...item(2)} className="flex flex-col gap-4">
-        {plan.stops.map((s, i) => (
-          <li key={s.id} className="grid grid-cols-[28px_1fr] gap-3">
-            <span className="grid h-7 w-7 place-items-center rounded-full bg-forest text-[13px] font-semibold text-on-forest">{i + 1}</span>
-            <span className="flex flex-col">
-              <span className="font-medium">{s.label}</span>
-              <span className="text-[15px] leading-snug text-muted">{s.why}</span>
-            </span>
-          </li>
-        ))}
-        <li className="grid grid-cols-[28px_1fr] gap-3">
-          <span className="grid h-7 w-7 place-items-center rounded-full bg-money text-[13px] font-semibold text-surface">€</span>
-          <span className="flex flex-col">
-            <span className="font-medium">{plan.returnPoint.name}</span>
-            <span className="text-[15px] leading-snug text-muted">
-              {plan.returnPoint.confidence === "machine" ? "Return machine on the map." : "Supermarket. Most big ones take returns; check before you go in."}
-              {plan.donate ? " Look for the donate button." : ""}
-            </span>
-          </span>
-        </li>
-      </motion.ol>
-
-      <motion.div {...item(3)} className="flex flex-col gap-3">
-        <LinkButton href={plan.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="min-h-14 text-base">
-          <NavigationArrow size={20} weight="bold" />
-          Open in Google Maps
-        </LinkButton>
-        <div className="grid grid-cols-2 gap-2">
+      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-bg/92 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+        <div className="mx-auto flex max-w-xl gap-2">
+          <LinkButton href={plan.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="min-h-14 flex-1 text-base">
+            <NavigationArrow size={20} weight="fill" />
+            Start walking
+          </LinkButton>
           {canSpeak && (
-            <Button
-              variant="secondary"
-              onClick={() => {
-                if (speaking) {
-                  window.speechSynthesis.cancel();
-                  setSpeaking(false);
-                } else {
-                  setSpeaking(true);
-                  speak(plan.briefing, () => setSpeaking(false));
-                }
-              }}
+            <button
+              onClick={toggleBriefing}
+              className="grid min-h-14 w-14 place-items-center rounded-xl bg-post text-on-post transition active:scale-[0.97]"
+              aria-label={speaking ? "Stop the briefing" : "Hear the briefing"}
             >
-              {speaking ? <SpeakerSlash size={18} /> : <SpeakerHigh size={18} />}
-              {speaking ? "Stop" : "Hear briefing"}
-            </Button>
+              {speaking ? <Stop size={20} weight="fill" /> : <SpeakerHigh size={20} />}
+            </button>
           )}
-          <Button variant="secondary" onClick={() => downloadGpx(plan)} className={canSpeak ? "" : "col-span-2"}>
-            <DownloadSimple size={18} />
-            GPX
-          </Button>
+          <button
+            onClick={() => downloadGpx(plan)}
+            className="grid min-h-14 w-14 place-items-center rounded-xl bg-post text-on-post transition active:scale-[0.97]"
+            aria-label="Download GPX for Strava, Komoot or OsmAnd"
+          >
+            <DownloadSimple size={20} />
+          </button>
         </div>
-        <p className="text-sm leading-relaxed text-muted">{plan.briefing}</p>
-      </motion.div>
-
-      <motion.div {...item(4)} className="flex flex-col gap-2 border-t border-line pt-6">
-        <Button variant="secondary" onClick={onHaul} className="min-h-14">
-          <Camera size={20} />
-          Back? Check my haul
-        </Button>
-        <p className="text-center text-[13px] text-muted">
-          Planned by {plan.model} {plan.tier === "edge" ? "on this phone" : plan.tier === "local" ? "on a laptop" : "in the cloud"}
-          {plan.gemmaMs ? ` in ${(plan.gemmaMs / 1000).toFixed(1)} s` : ""}.
-        </p>
-      </motion.div>
+      </div>
     </div>
   );
 }

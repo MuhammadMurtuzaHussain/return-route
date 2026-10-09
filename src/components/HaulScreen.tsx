@@ -1,26 +1,37 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Camera, Check, HandHeart, Minus, Plus, Warning } from "@phosphor-icons/react";
+import { motion, useReducedMotion } from "motion/react";
+import { Camera, HandHeart, Minus, Plus, Warning } from "@phosphor-icons/react";
 import { formatMoney, getScheme, type Scheme } from "@/lib/countries";
+import { receiptLines, type ReceiptLine } from "@/lib/ai/guard";
 import type { HaulChecked } from "@/lib/ai/engine";
-import { Button, Switch } from "./ui";
+import { Button } from "./ui";
 
 export type LoggedHaul = { containers: number; amount: number; donated: boolean };
+
+const TIER_WORDS = { edge: "on this phone, photo never left it", local: "on a laptop", cloud: "in the cloud" } as const;
+
+const NOTE: Record<ReceiptLine["status"], string> = {
+  paid: "",
+  maybe: "mark not visible",
+  damaged: "crushed, machine will refuse",
+  no_mark: "no deposit mark",
+  not_in_scheme: "not in the scheme",
+};
 
 export function HaulScreen({
   country,
   donateDefault,
   check,
   onLog,
-  onCancel,
 }: {
   country: string;
   donateDefault: boolean;
   check: (photo: Blob) => Promise<HaulChecked>;
   onLog: (h: LoggedHaul) => void;
-  onCancel: () => void;
 }) {
+  const reduce = useReducedMotion();
   const scheme: Scheme = getScheme(country) ?? getScheme("ie")!;
   const input = useRef<HTMLInputElement>(null);
   const [photo, setPhoto] = useState<string | null>(null);
@@ -28,7 +39,6 @@ export function HaulScreen({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<HaulChecked | null>(null);
   const [adjust, setAdjust] = useState(0);
-  const [donate, setDonate] = useState(donateDefault);
 
   useEffect(() => () => (photo ? URL.revokeObjectURL(photo) : undefined), [photo]);
 
@@ -48,108 +58,139 @@ export function HaulScreen({
     }
   };
 
+  const lines = useMemo(() => (result ? receiptLines(result.reading.items, scheme) : []), [result, scheme]);
   const t = result?.totals;
   const count = t ? Math.max(0, t.eligible + adjust) : 0;
   // A correction by hand counts at the small-container rate: most litter is cans.
-  const sure = t ? Math.max(0, Math.round((t.sure + adjust * scheme.small) * 100) / 100) : 0;
-  const upTo = t ? Math.max(sure, Math.round((t.possible + adjust * scheme.small) * 100) / 100) : 0;
-
-  const rejected = useMemo(() => {
-    if (!t) return [];
-    const r: string[] = [];
-    if (t.rejected.damaged) r.push(`${t.rejected.damaged} crushed or damaged: the machine will likely refuse ${t.rejected.damaged === 1 ? "it" : "them"}`);
-    if (t.rejected.noMark) r.push(`${t.rejected.noMark} without the ${scheme.scheme} mark`);
-    if (t.rejected.notInScheme) r.push(`${t.rejected.notInScheme} not in the ${scheme.country} scheme (glass, dairy or the wrong size)`);
-    return r;
-  }, [t, scheme]);
+  const total = t ? Math.max(0, Math.round((t.sure + adjust * scheme.small) * 100) / 100) : 0;
+  const upTo = t ? Math.max(total, Math.round((t.possible + adjust * scheme.small) * 100) / 100) : 0;
+  const money = (n: number) => formatMoney(n, scheme.currency);
 
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-2">
-        <h1 className="text-[2.2rem] font-semibold leading-tight tracking-tight">What did you find?</h1>
-        <p className="text-muted">Spread the cans and bottles out, labels up, and take one photo. Gemma counts them and checks for the {scheme.scheme} mark.</p>
+    <div className="flex flex-col gap-7">
+      <header>
+        <h1 className="sign text-[3rem] font-bold uppercase leading-[0.95]">Lay it all out</h1>
+        <p className="mt-3 max-w-[40ch] text-[15px] leading-relaxed text-muted">
+          Labels up, nothing stacked. One photo, and Gemma counts the cans and bottles and checks each one for the {scheme.scheme} mark.
+        </p>
       </header>
 
       <input ref={input} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => pick(e.target.files?.[0])} />
 
-      {photo ? (
-        <button onClick={() => input.current?.click()} className="relative overflow-hidden rounded-[20px] bg-sunk" aria-label="Take another photo">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={photo} alt="Your haul" className={`max-h-[40dvh] w-full object-cover transition ${busy ? "opacity-60" : ""}`} />
-          {busy && (
-            <span className="absolute inset-x-4 bottom-4 rounded-full bg-surface/90 px-4 py-2 text-center text-sm font-medium backdrop-blur">
-              Gemma is counting{result === null ? "…" : ""}
-            </span>
-          )}
-        </button>
-      ) : (
-        <button
-          onClick={() => input.current?.click()}
-          className="flex aspect-[4/3] flex-col items-center justify-center gap-3 rounded-[20px] border-2 border-dashed border-line bg-surface text-muted transition hover:text-ink active:scale-[0.99]"
-        >
-          <Camera size={40} />
-          <span className="font-medium">Take a photo of your haul</span>
-        </button>
-      )}
+      <button
+        onClick={() => input.current?.click()}
+        className="viewfinder relative grid aspect-[4/3] w-full place-items-center overflow-hidden rounded-[6px] bg-surface p-[3px] transition active:scale-[0.99]"
+        aria-label={photo ? "Take another photo" : "Take a photo of your haul"}
+      >
+        {photo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photo} alt="Your haul" className="h-full w-full rounded-[3px] object-cover" />
+        ) : (
+          <span className="flex flex-col items-center gap-3 text-muted">
+            <Camera size={44} />
+            <span className="font-mono text-[13px] uppercase">Tap to open the camera</span>
+          </span>
+        )}
+        {busy && !reduce && (
+          <motion.span
+            className="absolute inset-x-3 h-0.5 bg-mark shadow-[0_0_12px_2px_var(--mark)]"
+            initial={{ top: "6%" }}
+            animate={{ top: ["6%", "94%", "6%"] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+          />
+        )}
+        {busy && <span className="absolute bottom-3 left-3 bg-post px-2 py-1 font-mono text-[12px] uppercase text-on-post">Gemma is counting</span>}
+      </button>
 
       {error && (
-        <p role="alert" className="flex items-start gap-2 rounded-[20px] bg-sunk px-4 py-3 text-sm">
-          <Warning size={18} className="mt-0.5 shrink-0 text-danger" />
+        <p role="alert" className="flex items-start gap-2 text-[14px]">
+          <Warning size={18} className="mt-0.5 shrink-0 text-mark-ink" />
           {error}
         </p>
       )}
 
       {t && result && (
-        <section aria-label="Result" className="flex flex-col gap-5">
-          <div className="flex flex-col gap-1 rounded-[20px] bg-money-soft px-5 py-4">
-            <span className="tabular font-mono text-4xl font-semibold tracking-tight text-money">{formatMoney(sure, scheme.currency)}</span>
-            <span className="text-sm text-ink/80">
-              {count} container{count === 1 ? "" : "s"} with the mark
-              {t.maybe > 0 && upTo > sure ? `, up to ${formatMoney(upTo, scheme.currency)} if the ${t.maybe} unsure one${t.maybe === 1 ? " has" : "s have"} it too` : ""}.
-            </span>
+        <motion.section
+          aria-label="Your voucher"
+          initial={reduce ? false : { clipPath: "inset(0 0 100% 0)" }}
+          animate={{ clipPath: "inset(0 0 0% 0)" }}
+          transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          className="voucher px-5 py-7 font-mono text-[13px]"
+        >
+          <p className="text-center uppercase tracking-[0.2em] text-muted">Return Route voucher</p>
+          <p className="mt-1 text-center uppercase text-muted">
+            {scheme.scheme}, {scheme.country}
+          </p>
+
+          <ul className="mt-6 flex flex-col gap-2.5">
+            {lines.length === 0 && <li className="text-muted">No drink containers in this photo.</li>}
+            {lines.map((l) => {
+              const counts = l.status === "paid" || l.status === "maybe";
+              return (
+                <li key={`${l.status}${l.label}`} className={counts ? "" : "text-muted"}>
+                  <div className="flex items-end gap-2">
+                    <span className={`uppercase ${counts ? "" : "line-through"}`}>
+                      {l.label} ×{l.qty}
+                    </span>
+                    <span className="leader" />
+                    <span className="tabular">{counts ? money(l.amount) : money(0)}</span>
+                  </div>
+                  {NOTE[l.status] && <span className="text-[12px] text-muted">{NOTE[l.status]}</span>}
+                </li>
+              );
+            })}
+            {adjust !== 0 && (
+              <li>
+                <div className="flex items-end gap-2">
+                  <span className="uppercase">Hand count {adjust > 0 ? `+${adjust}` : adjust}</span>
+                  <span className="leader" />
+                  <span className="tabular">{money(adjust * scheme.small)}</span>
+                </div>
+              </li>
+            )}
+          </ul>
+
+          <div className="mt-6 border-t-2 border-dashed border-line pt-4">
+            <div className="flex items-end justify-between gap-3">
+              <span className="uppercase">Total</span>
+              <span className="sign tabular font-sans text-[2.6rem] font-bold leading-none">{money(total)}</span>
+            </div>
+            {t.maybe > 0 && upTo > total && <p className="mt-2 text-right text-muted">up to {money(upTo)} if the unsure ones have the mark</p>}
           </div>
 
+          {result.reading.notes && lines.length > 0 && <p className="mt-5 normal-case leading-relaxed text-muted">{result.reading.notes}</p>}
+          <p className="mt-5 text-center text-[11px] uppercase text-muted">
+            Read by {result.model} {TIER_WORDS[result.tier]}
+            {result.gemmaMs ? `, ${(result.gemmaMs / 1000).toFixed(1)}s` : ""}
+          </p>
+        </motion.section>
+      )}
+
+      {t && result && (
+        <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-4">
-            <span className="text-[15px]">Gemma miscounted?</span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-line bg-surface p-1">
-              <button onClick={() => setAdjust((a) => Math.max(-t.eligible, a - 1))} className="grid h-9 w-9 place-items-center rounded-full hover:bg-sunk" aria-label="One fewer">
+            <span className="text-[15px]">Count&apos;s off?</span>
+            <span className="inline-flex items-center gap-1 rounded-xl border border-line p-1">
+              <button onClick={() => setAdjust((a) => Math.max(-t.eligible, a - 1))} className="grid h-10 w-10 place-items-center rounded-lg hover:bg-surface" aria-label="One fewer">
                 <Minus size={16} weight="bold" />
               </button>
-              <span className="tabular w-8 text-center font-mono">{count}</span>
-              <button onClick={() => setAdjust((a) => a + 1)} className="grid h-9 w-9 place-items-center rounded-full hover:bg-sunk" aria-label="One more">
+              <span className="tabular w-8 text-center font-mono font-semibold">{count}</span>
+              <button onClick={() => setAdjust((a) => a + 1)} className="grid h-10 w-10 place-items-center rounded-lg hover:bg-surface" aria-label="One more">
                 <Plus size={16} weight="bold" />
               </button>
             </span>
           </div>
-
-          {(rejected.length > 0 || result.reading.notes) && (
-            <ul className="flex flex-col gap-2 text-[15px] text-muted">
-              {rejected.map((r) => (
-                <li key={r} className="flex gap-2">
-                  <Warning size={18} className="mt-0.5 shrink-0" />
-                  {r}
-                </li>
-              ))}
-              {result.reading.notes && <li className="pl-[26px]">{result.reading.notes}</li>}
-            </ul>
-          )}
-
-          <Switch checked={donate} onChange={setDonate} label="Donate this one" hint="Counts towards your donated total instead of your goal." />
-
-          <Button onClick={() => onLog({ containers: count, amount: sure, donated: donate })} className="min-h-14 text-base">
-            {donate ? <HandHeart size={20} weight="bold" /> : <Check size={20} weight="bold" />}
-            {donate ? "Log it as donated" : "Log it"}
-          </Button>
-          <p className="text-center text-[13px] text-muted">
-            Read by {result.model} {result.tier === "edge" ? "on this phone; the photo never left it" : result.tier === "local" ? "on a laptop" : "in the cloud"}
-            {result.gemmaMs ? ` in ${(result.gemmaMs / 1000).toFixed(1)} s` : ""}.
-          </p>
-        </section>
+          <div className="grid grid-cols-[1.4fr_1fr] gap-2">
+            <Button onClick={() => onLog({ containers: count, amount: total, donated: false })} className="min-h-14 text-base">
+              Keep {money(total)}
+            </Button>
+            <Button variant={donateDefault ? "post" : "outline"} onClick={() => onLog({ containers: count, amount: total, donated: true })} className="min-h-14">
+              <HandHeart size={18} />
+              Donate it
+            </Button>
+          </div>
+        </div>
       )}
-
-      <Button variant="ghost" onClick={onCancel}>
-        Back to the route
-      </Button>
     </div>
   );
 }

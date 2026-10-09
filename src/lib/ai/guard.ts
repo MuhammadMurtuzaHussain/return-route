@@ -84,11 +84,18 @@ export function guardPlan(
     stopIds,
     returnPointId,
     why,
-    title: stripMoney(clean(pick.title, 60)) || ctx.defaultTitle,
+    title: namesAPlace(stripMoney(clean(pick.title, 60)), [...stops.map((h) => h.label), rp?.name ?? ""]) || ctx.defaultTitle,
     lookFor: stripMoney(clean(pick.lookFor, 200)),
     tip: stripMoney(clean(pick.tip, 160)),
     flags,
   };
+}
+
+/** A walk's title must name somewhere on it; "Park Collections" doesn't. Returns "" if not. */
+export function namesAPlace(title: string, places: string[]): string {
+  const words = new Set(places.join(" ").toLowerCase().match(/[a-z\u00c0-\u024f']{4,}/g) ?? []);
+  for (const generic of ["park", "picnic", "tables", "pitch", "pitches", "benches", "playground", "return", "machine"]) words.delete(generic);
+  return (title.toLowerCase().match(/[a-z\u00c0-\u024f']{4,}/g) ?? []).some((w) => words.has(w)) ? title : "";
 }
 
 /** Gemma's words are read aloud; they must not promise money the app did not compute. */
@@ -178,3 +185,36 @@ export function extractJson(text: string): unknown {
   }
   return null;
 }
+
+export type ReceiptLine = {
+  label: string;
+  qty: number;
+  unit: number;
+  amount: number;
+  status: "paid" | "maybe" | "damaged" | "no_mark" | "not_in_scheme";
+};
+
+const MATERIAL_LABEL = { can: "Can", pet: "Bottle", glass: "Glass" } as const;
+
+/** Group what Gemma saw into voucher lines, priced from the deposit table. */
+export function receiptLines(items: HaulItem[], scheme: Scheme): ReceiptLine[] {
+  const lines = new Map<string, ReceiptLine>();
+  for (const it of items.slice(0, 120)) {
+    if (it.material === "other") continue;
+    const ml = Number.isFinite(it.ml) ? Math.min(Math.max(it.ml, 0), 20_000) : 500;
+    const unit = depositFor(scheme, it.material, ml);
+    const band = scheme.small === scheme.large ? "" : ml <= scheme.smallMaxMl ? ` ≤${fmtMl(scheme.smallMaxMl)}` : ` >${fmtMl(scheme.smallMaxMl)}`;
+    const status: ReceiptLine["status"] =
+      unit === 0 ? "not_in_scheme" : it.damaged ? "damaged" : it.mark === "no" ? "no_mark" : it.mark === "unsure" ? "maybe" : "paid";
+    const label = `${MATERIAL_LABEL[it.material]}${unit === 0 ? "" : band}`;
+    const key = `${status}|${label}|${unit}`;
+    const line = lines.get(key) ?? { label, qty: 0, unit, amount: 0, status };
+    line.qty++;
+    line.amount = status === "paid" || status === "maybe" ? Math.round(line.qty * unit * 100) / 100 : 0;
+    lines.set(key, line);
+  }
+  const order: ReceiptLine["status"][] = ["paid", "maybe", "damaged", "no_mark", "not_in_scheme"];
+  return [...lines.values()].sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status) || b.unit - a.unit);
+}
+
+const fmtMl = (ml: number) => (ml >= 1000 ? `${ml / 1000}L` : `${ml}ML`);

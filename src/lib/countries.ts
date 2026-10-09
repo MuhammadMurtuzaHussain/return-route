@@ -173,7 +173,8 @@ export function typicalDeposit(s: Scheme): number {
 }
 
 export function formatMoney(amount: number, currency: string, locale = "en-IE"): string {
-  const whole = Number.isInteger(amount) || currency === "HUF" || currency === "ISK";
+  // Vouchers always show cents; forint and krónur have none worth showing.
+  const whole = currency === "HUF" || currency === "ISK";
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,

@@ -1,20 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { Crosshair, Footprints, MapPin } from "@phosphor-icons/react";
-import { formatMoney } from "@/lib/countries";
+import { motion, useReducedMotion } from "motion/react";
+import { NotePencil, Warning } from "@phosphor-icons/react";
+import { budgetM, stopsFor } from "@/lib/plan/select";
 import type { Goal, Totals } from "@/lib/client/store";
-import { Button, Switch } from "./ui";
+import { Chip } from "./ui";
+import { VoucherStub } from "./Voucher";
 
 export type Where = { kind: "here"; lat: number; lon: number } | { kind: "demo"; lat: number; lon: number; name: string };
 
 export const DEMO_START = { kind: "demo" as const, lat: 53.2845, lon: -9.042, name: "Terryland Forest Park, Galway" };
 
-const DURATIONS = [
-  { minutes: 30, label: "30 min", hint: "A loop round the block" },
-  { minutes: 60, label: "1 hour", hint: "Two or three good spots" },
-  { minutes: 90, label: "90 min", hint: "The long way round" },
+// Fingerpost blades, shortest to longest, like a real signpost.
+const BLADES = [
+  { minutes: 30, label: "30 min", width: "74%" },
+  { minutes: 60, label: "1 hour", width: "88%" },
+  { minutes: 90, label: "90 min", width: "100%" },
 ];
+
+const km = (minutes: number) => (budgetM(minutes, stopsFor(minutes)) / 1000).toFixed(1);
 
 export function GoScreen({
   onPlan,
@@ -22,123 +27,119 @@ export function GoScreen({
   goal,
   donateDefault,
   error,
+  flash,
 }: {
   onPlan: (p: { minutes: number; intent: string; donate: boolean; where: Where }) => void;
   totals: Totals;
   goal: Goal;
   donateDefault: boolean;
   error: string | null;
+  flash: boolean;
 }) {
-  const [minutes, setMinutes] = useState(60);
+  const reduce = useReducedMotion();
   const [intent, setIntent] = useState("");
+  const [noteOpen, setNoteOpen] = useState(false);
   const [donate, setDonate] = useState(donateDefault);
-  const [locating, setLocating] = useState(false);
+  const [demo, setDemo] = useState(false);
+  const [locating, setLocating] = useState<number | null>(null);
   const [locError, setLocError] = useState<string | null>(null);
 
-  const go = (where?: Where) => {
-    if (where) return onPlan({ minutes, intent, donate, where });
+  const go = (minutes: number) => {
+    setLocError(null);
+    if (demo) return onPlan({ minutes, intent, donate, where: DEMO_START });
     if (!("geolocation" in navigator)) {
-      setLocError("This browser can't share your location.");
+      setLocError("This browser can't share your location. Try the Terryland demo start instead.");
       return;
     }
-    setLocating(true);
-    setLocError(null);
+    setLocating(minutes);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setLocating(false);
+        setLocating(null);
         onPlan({ minutes, intent, donate, where: { kind: "here", lat: pos.coords.latitude, lon: pos.coords.longitude } });
       },
       () => {
-        setLocating(false);
-        setLocError("Couldn't get your location. Allow it in the browser, or try the Galway demo.");
+        setLocating(null);
+        setLocError("Couldn't get your location. Allow it in the browser, or start from the Terryland demo.");
       },
       { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 },
     );
   };
 
-  const progress = goal.amount > 0 ? Math.min(1, totals.earned / goal.amount) : 0;
+  const message = error ?? locError;
 
   return (
-    <div className="flex flex-col gap-8">
-      <h1 className="text-[2.6rem] font-semibold leading-[1.05] tracking-tight">How long have you got?</h1>
+    <div className="flex flex-col gap-9">
+      <h1 className="sign text-[3.4rem] font-bold uppercase leading-[0.92]">
+        Out for
+        <span className="block text-muted">a walk that pays.</span>
+      </h1>
 
-      <fieldset className="grid grid-cols-3 gap-2">
-        <legend className="sr-only">Walk length</legend>
-        {DURATIONS.map((d) => {
-          const on = d.minutes === minutes;
-          return (
-            <label
-              key={d.minutes}
-              className={`flex cursor-pointer flex-col gap-1 rounded-[20px] border p-4 transition active:scale-[0.98] ${
-                on ? "border-forest bg-forest text-on-forest" : "border-line bg-surface hover:bg-sunk"
-              }`}
+      <nav aria-label="How long have you got?" className="relative flex flex-col gap-3 pl-5">
+        <span className="absolute bottom-[-24px] left-0 top-[-12px] w-3 rounded-t-[3px] bg-post" aria-hidden="true" />
+        {BLADES.map((b, i) => (
+          <motion.button
+            key={b.minutes}
+            onClick={() => go(b.minutes)}
+            disabled={locating !== null}
+            style={{ width: b.width }}
+            initial={reduce ? false : { x: -24, opacity: 0 }}
+            animate={{ x: locating === b.minutes && !reduce ? 10 : 0, opacity: locating !== null && locating !== b.minutes ? 0.35 : 1 }}
+            transition={{ type: "spring", stiffness: 260, damping: 26, delay: reduce ? 0 : 0.06 * i }}
+            whileTap={reduce ? undefined : { x: 6 }}
+            className="blade group flex min-h-[76px] items-center justify-between gap-3 bg-mark pl-5 pr-12 text-left text-on-mark transition-[filter] hover:brightness-105 focus-visible:outline-offset-4"
+          >
+            <span className="sign text-[2.6rem] font-bold uppercase leading-none">{b.label}</span>
+            <span className="tabular font-mono text-[12px] font-medium uppercase opacity-70">
+              {locating === b.minutes ? "Finding you…" : `≈${km(b.minutes)} km`}
+            </span>
+          </motion.button>
+        ))}
+      </nav>
+
+      <div className="flex flex-col gap-4 pt-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip checked={donate} onChange={setDonate}>
+            Donate the refund
+          </Chip>
+          <Chip checked={demo} onChange={setDemo}>
+            Start at Terryland (demo)
+          </Chip>
+          {!noteOpen && (
+            <button
+              onClick={() => setNoteOpen(true)}
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-[14px] font-medium text-muted hover:text-ink"
             >
-              <input type="radio" name="minutes" className="sr-only" checked={on} onChange={() => setMinutes(d.minutes)} />
-              <span className="text-xl font-semibold tracking-tight">{d.label}</span>
-              <span className={`text-[13px] leading-snug ${on ? "opacity-80" : "text-muted"}`}>{d.hint}</span>
+              <NotePencil size={16} />
+              Add a note
+            </button>
+          )}
+        </div>
+        {noteOpen && (
+          <div className="flex flex-col gap-2">
+            <label htmlFor="intent" className="text-[14px] font-medium">
+              Tell Gemma anything
             </label>
-          );
-        })}
-      </fieldset>
-
-      <div className="flex flex-col gap-2">
-        <label htmlFor="intent" className="text-[15px] font-medium">
-          Anything I should know?
-        </label>
-        <textarea
-          id="intent"
-          rows={2}
-          maxLength={300}
-          value={intent}
-          onChange={(e) => setIntent(e.target.value)}
-          placeholder="Finish at Tesco, stay off the main road"
-          className="resize-none rounded-[20px] border border-line bg-surface px-4 py-3 text-[15px] placeholder:text-muted/80 focus:border-forest focus:outline-none"
-        />
-      </div>
-
-      <Switch checked={donate} onChange={setDonate} label="Donate the refund" hint="Many return machines have a charity button." />
-
-      <div className="flex flex-col gap-3">
-        <Button onClick={() => go()} disabled={locating} className="min-h-14 text-base">
-          <Footprints size={20} weight="bold" />
-          {locating ? "Finding you…" : "Plan my walk"}
-        </Button>
-        <button
-          onClick={() => go(DEMO_START)}
-          className="inline-flex items-center justify-center gap-1.5 self-center text-sm text-muted underline-offset-4 hover:text-ink hover:underline"
-        >
-          <MapPin size={15} />
-          Or try it from Terryland Forest Park, Galway
-        </button>
-        {(locError || error) && (
-          <p role="alert" className="flex items-start gap-2 rounded-[20px] bg-sunk px-4 py-3 text-sm">
-            <Crosshair size={18} className="mt-0.5 shrink-0 text-danger" />
-            {error ?? locError}
+            <input
+              id="intent"
+              autoFocus
+              maxLength={300}
+              value={intent}
+              onChange={(e) => setIntent(e.target.value)}
+              placeholder="Finish at Tesco, stay off the main road"
+              className="min-h-12 rounded-xl border border-line bg-surface px-4 text-[15px] placeholder:text-muted focus:border-mark focus:outline-none"
+            />
+            <span className="text-[13px] text-muted">Then tap a sign.</span>
+          </div>
+        )}
+        {message && (
+          <p role="alert" className="flex items-start gap-2 text-[14px]">
+            <Warning size={18} className="mt-0.5 shrink-0 text-mark-ink" />
+            {message}
           </p>
         )}
       </div>
 
-      <section aria-label="Your progress" className="flex flex-col gap-2 border-t border-line pt-6">
-        <div className="flex items-baseline justify-between gap-4">
-          <span className="text-sm text-muted">
-            {goal.label}: <span className="tabular font-mono text-ink">{formatMoney(totals.earned, totals.currency)}</span> of{" "}
-            <span className="tabular font-mono">{formatMoney(goal.amount, totals.currency)}</span>
-          </span>
-          {totals.donated > 0 && (
-            <span className="text-sm text-muted">
-              Donated <span className="tabular font-mono text-ink">{formatMoney(totals.donated, totals.currency)}</span>
-            </span>
-          )}
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-sunk" aria-hidden="true">
-          <div className="h-full rounded-full bg-money transition-[width] duration-700" style={{ width: `${Math.max(progress * 100, totals.earned > 0 ? 2 : 0)}%` }} />
-        </div>
-        <span className="text-[13px] text-muted">
-          {totals.walks === 0
-            ? "Your first walk starts the count."
-            : `${totals.walks} walk${totals.walks === 1 ? "" : "s"}, ${totals.containers} containers back in the loop.`}
-        </span>
-      </section>
+      <VoucherStub totals={totals} goal={goal} flash={flash} />
     </div>
   );
 }

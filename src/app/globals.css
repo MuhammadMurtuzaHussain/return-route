@@ -1,51 +1,59 @@
 @import "tailwindcss";
 @import "maplibre-gl/dist/maplibre-gl.css";
 
-/* Forest palette: deep green on misty off-white, one amber accent reserved for money. */
+/*
+  Waymark & voucher.
+  Irish waymarked trails are a black post with a yellow walking arrow; deposit
+  machines print a thermal voucher. Off-black, paper, one waymark yellow.
+  Shape rule: controls 12px, panels 20px, signs are arrows.
+*/
 :root {
-  --bg: #edf1ec;
-  --surface: #f7f9f5;
-  --sunk: #e3e9e2;
-  --ink: #14231a;
-  --muted: #526157;
-  --line: #d3dbd1;
-  --forest: #1f4d33;
-  --on-forest: #f2f6f1;
-  --money: #8a5a0a;
-  --money-soft: #f3e3c2;
-  --danger: #a2361f;
+  --bg: #f1f1ed;
+  --surface: #fafaf7;
+  --sunk: #e6e6e0;
+  --ink: #171715;
+  --muted: #62625c;
+  --line: #d4d4cc;
+  --post: #1d1d1a;
+  --on-post: #f1f1ed;
+  --mark: #e5b53b;
+  --on-mark: #171715;
+  --mark-ink: #8a6512;
+  --paper: #fdfdfb;
   color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #0d1611;
-    --surface: #142019;
-    --sunk: #0a110d;
-    --ink: #e5ece4;
-    --muted: #98a99d;
-    --line: #243329;
-    --forest: #9fd2b0;
-    --on-forest: #0d1611;
-    --money: #f0bb55;
-    --money-soft: #3a2c10;
-    --danger: #f08a6f;
+    --bg: #121210;
+    --surface: #1a1a17;
+    --sunk: #0c0c0b;
+    --ink: #ecece6;
+    --muted: #9b9b93;
+    --line: #2c2c28;
+    --post: #2a2a26;
+    --on-post: #ecece6;
+    --mark: #e8bb45;
+    --on-mark: #121210;
+    --mark-ink: #e8bb45;
+    --paper: #20201c;
     color-scheme: dark;
   }
 }
 
 :root[data-theme="dark"] {
-  --bg: #0d1611;
-  --surface: #142019;
-  --sunk: #0a110d;
-  --ink: #e5ece4;
-  --muted: #98a99d;
-  --line: #243329;
-  --forest: #9fd2b0;
-  --on-forest: #0d1611;
-  --money: #f0bb55;
-  --money-soft: #3a2c10;
-  --danger: #f08a6f;
+  --bg: #121210;
+  --surface: #1a1a17;
+  --sunk: #0c0c0b;
+  --ink: #ecece6;
+  --muted: #9b9b93;
+  --line: #2c2c28;
+  --post: #2a2a26;
+  --on-post: #ecece6;
+  --mark: #e8bb45;
+  --on-mark: #121210;
+  --mark-ink: #e8bb45;
+  --paper: #20201c;
   color-scheme: dark;
 }
 
@@ -56,13 +64,14 @@
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-line: var(--line);
-  --color-forest: var(--forest);
-  --color-on-forest: var(--on-forest);
-  --color-money: var(--money);
-  --color-money-soft: var(--money-soft);
-  --color-danger: var(--danger);
-  --font-sans: var(--font-geist);
-  --font-mono: var(--font-geist-mono);
+  --color-post: var(--post);
+  --color-on-post: var(--on-post);
+  --color-mark: var(--mark);
+  --color-on-mark: var(--on-mark);
+  --color-mark-ink: var(--mark-ink);
+  --color-paper: var(--paper);
+  --font-sans: var(--font-archivo);
+  --font-mono: var(--font-plex-mono);
 }
 
 html,
@@ -76,15 +85,72 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid var(--forest);
-  outline-offset: 2px;
+  outline: 2px solid var(--mark);
+  outline-offset: 3px;
+}
+
+h1,
+h2,
+p {
+  text-wrap: pretty;
+}
+
+/* Signage: Archivo squeezed to its narrowest. */
+.sign {
+  font-stretch: 62%;
+  font-variation-settings: "wdth" 62;
+  letter-spacing: -0.01em;
+}
+.semi {
+  font-stretch: 82%;
+  font-variation-settings: "wdth" 82;
 }
 
 .tabular {
   font-variant-numeric: tabular-nums;
 }
 
-/* MapLibre controls in our palette. */
+/* A fingerpost blade: an arrow pointing the way. */
+.blade {
+  clip-path: polygon(0 0, calc(100% - 28px) 0, 100% 50%, calc(100% - 28px) 100%, 0 100%);
+}
+
+/* Thermal voucher: torn zigzag top and bottom. */
+.voucher {
+  --tooth: 7px;
+  background: var(--paper);
+  -webkit-mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(2 * var(--tooth)) var(--tooth) repeat-x,
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / calc(2 * var(--tooth)) var(--tooth) repeat-x,
+    linear-gradient(#000 0 0) center / 100% calc(100% - 2 * var(--tooth) + 1px) no-repeat;
+  mask:
+    conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(2 * var(--tooth)) var(--tooth) repeat-x,
+    conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / calc(2 * var(--tooth)) var(--tooth) repeat-x,
+    linear-gradient(#000 0 0) center / 100% calc(100% - 2 * var(--tooth) + 1px) no-repeat;
+  filter: drop-shadow(0 1px 0 var(--line));
+}
+
+/* Dotted leaders between a receipt label and its amount. */
+.leader {
+  flex: 1;
+  min-width: 12px;
+  border-bottom: 2px dotted var(--line);
+  transform: translateY(-4px);
+}
+
+/* Viewfinder corners for the haul camera. */
+.viewfinder {
+  background:
+    linear-gradient(var(--mark) 0 0) top left / 28px 3px no-repeat,
+    linear-gradient(var(--mark) 0 0) top left / 3px 28px no-repeat,
+    linear-gradient(var(--mark) 0 0) top right / 28px 3px no-repeat,
+    linear-gradient(var(--mark) 0 0) top right / 3px 28px no-repeat,
+    linear-gradient(var(--mark) 0 0) bottom left / 28px 3px no-repeat,
+    linear-gradient(var(--mark) 0 0) bottom left / 3px 28px no-repeat,
+    linear-gradient(var(--mark) 0 0) bottom right / 28px 3px no-repeat,
+    linear-gradient(var(--mark) 0 0) bottom right / 3px 28px no-repeat;
+}
+
 .maplibregl-ctrl-attrib {
   font-size: 10px;
   background: color-mix(in srgb, var(--surface) 80%, transparent) !important;
@@ -99,6 +165,7 @@ body {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }
