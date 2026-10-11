@@ -121,18 +121,41 @@ Built on an Irish waymarked trail post (black post, yellow arrow) and a return m
 
 **Guided demo:** `/?demo` plans a real walk from Terryland, plays it on the map and shows the real haul from the 11 Oct test walk (`public/demo/real-haul.jpg`). That voucher is checked against what the Re-turn machine at Lidl paid: 2 cans at 15c, €0.30. If Gemma is unreachable it falls back to a labelled recorded plan. It never touches real totals.
 
+- The haul step does **not** call Gemma on that photo. Live reads by `gemma4:e4b` and `gemma-4-26b-a4b-it` both came to €0.00 (marks "no" or "unsure"): the Re-turn logos are too small in a top-down bag shot. So the demo shows the checked reading (`REAL_HAUL` in `src/lib/demo/index.ts`, passed to `HaulScreen` as `known`) and the voucher footer says where it came from. A photo taken in the demo with the camera or gallery still goes to Gemma live.
+- "Try a sample photo" outside the demo still uses the FLUX image (`public/demo/haul.jpg`), which has big deposit stickers Gemma can read.
+
 ## Progress log
 
 - **9 Oct:** MVP built across all three tiers, plus Render blueprint, deposit table and Galway snapshot. Disk on the Mac cleared to about 2 GB.
 - **9–10 Oct:** pushed to GitHub. UI redesigned from the generic look to waymark and voucher. Footer credits added.
 - **11 Oct, morning (`d86cfab`, `4fec91d`):** first-user feedback session. Added the welcome popup with the 9GAG story, the guided demo (`/?demo`, 8 captioned steps in `src/lib/demo/index.ts`, map walk-through, recorded plan fallback), Walk for a cause (green theme, giving voucher, Give as the main action), the walk-logged screen (Gemma-drafted post, voucher image via `share.ts`), Customise this walk (20 to 180 min plus direction) and the appearance setting. The audit fixes were marker drift, lowercased titles, nav wrap on phones, bin advice and generic titles, Escape and focus in dialogs, planning Cancel, labelled Briefing and GPX buttons, the sideways jump, the theme flash and the browser bar colour. The Terryland and Donate chips were removed at the author's request; the demo and cause mode cover them. The FLUX sample photo was generated for "Try a sample photo".
 - **10–11 Oct:** Sentry agent tracing, SerpApi events, Key Value cache, parallel workflow. Planner eval (before → after): cloud untouched by the guard 7/8 → 8/8, local 6/8 → 7/8; both reached 0 too-long walks and 5/5 finishes where asked. Map data moved to OpenFreeMap tiles, so plans work anywhere in Europe.
-- **11 Oct:** test walk in Galway. The real haul was checked at the Lidl machine (€0.30) and is now in the demo. Render deploy live, `/api/status` returns 200.
+- **11 Oct:** test walk in Galway. The real haul was checked at the Lidl machine (€0.30) and is now in the demo (`ce334b6`). Small hauls show grams recycled ("≈32 g") instead of "0 kg". Render deploy live, `/api/status` returns 200.
+- **11 Oct, evening:** two videos of the walk made in `../return-route-videos` (see below).
+
+## The test walk and the videos
+
+Footage is in `../Video for return-route/` (Ray-Ban Meta glasses clips plus iPhone clips and photos). The edits live in `../return-route-videos` (Remotion; its README and CLAUDE.md say how to rebuild).
+
+- `out/ReturnRoute-Reel.mp4`: 65 s, 1080×1920, word-by-word captions and motion graphics. For Instagram, X or LinkedIn.
+- `out/ReturnRoute-FullWalk.mp4`: 11:54, 1920×1080, 13 chapters with side notes and subtitles, ending with the guided demo recorded on the live site. For YouTube or the DEV post.
+- Music in both is original, synthesised with numpy. Sound effects come from the earlier launch-video project and remotion.media.
+
+Facts from the walk, for the post (times are Irish time):
+
+- 17:26 planned at home on the laptop and phone, cloud tier, 90 minutes, 15°C and overcast. Left about 17:30 with no gloves.
+- First find was a Monster Ultra can at home. Pickups on camera: a crushed can, a wrapper, a big damaged bottle, a Strong Power can in a hedge ("first score of the day"), a squashed Coca-Cola can and a crumpled carton.
+- Stop 1 was a park (very clean). The author found a playground nearby they'd never seen. Stop 2 was a skate park (left alone, kids using it). Left a glass alcohol bottle in a bush.
+- **Fail:** Google Maps led to a college campus gate with no way in. The author skipped the last, far stop and headed to Lidl Doughiska, predicting "about 30 cents".
+- 18:19 haul photo read by Gemma in the cloud: 2 cans "mark not visible", crushed cans and bottle struck off, so €0.00 for sure and "up to €0.30". The laptop tier failed first because the laptop was at home. The author's own feedback: take the photo closer, labels up. They used + twice, chose charity and posted to X.
+- 18:27 Re-turn machine: 2 items. Voucher "2 × Can at 0.15, Amount €0.30". The Monster and Strong Power cans were the only ones that qualified.
+- The author has lived in Ireland two years and never used Re-turn before (drinks only water from a flask). Quote: "the open source project that I just made is working very well … we touched grass, I hope that counts."
+- Lessons worth a line in the post: photo close with labels up; crushed cans don't pay; bring gloves; the planner should skip stops inside private grounds; clean streets have few cans, while off-licences and busy roads have more.
 
 ## Open items (not confirmed done as of 11 Oct)
 
 - [ ] Edge tier on the Android phone over the Render URL: download, plan and haul read, with timings for the post.
-- [ ] Haul eval: put real photos and true counts in `eval/hauls/`, then run `pnpm eval` per tier. Then tune and measure before and after:
+- [ ] Haul eval: put real photos and true counts in `eval/hauls/`, then run `pnpm eval` per tier. The test-walk haul (`public/demo/real-haul.jpg`, truth: 2 eligible) is a ready first entry; live reads on 11 Oct scored 0 eligible on it. Then tune and measure before and after:
   - temperature 0 for the haul read (still 0.2 in `src/mastra/gemma.ts`);
   - have Gemma note where each container is before counting;
   - on the cloud tier, read twice and keep the middle count;
@@ -144,7 +167,8 @@ Built on an Irish waymarked trail post (black post, yellow arrow) and a return m
   - Render events and Key Value;
   - the Mastra workflow;
   - the `pnpm eval:plan` before and after table.
-- [ ] Write the DEV post (tag `#hf26challenge`, AI disclosure). Lead with the "Gemma judges, code guarantees" split, the eval numbers and the real €0.30 voucher. Footage is in `../Video for return-route/`.
+- [ ] Write the DEV post (tag `#hf26challenge`, AI disclosure). Lead with the "Gemma judges, code guarantees" split, the eval numbers and the real €0.30 voucher. Embed the full-walk video and use the reel for socials (`../return-route-videos/out/`); the walk facts above have the story.
+- [ ] Maybe: leave out stops inside private grounds (campus, `access=private`) in the planner, after the college-gate dead end on the walk.
 - [ ] The 9GAG copy doesn't follow the "unverified" rule above yet: `Welcome.tsx` ("Someone in Germany posted on 9GAG…"), `Voucher.tsx` and `Logged.tsx` ("The 9GAG walker did 2,000").
 - [ ] Housekeeping: delete the merged `demo-and-cause-mode` branch on GitHub, and the scratch Canva design "Photo Collage - Sustainability" left from the image experiments.
 - [ ] Decide on the untracked Sentry wizard scaffolding (`src/app/sentry-example-page/`, `src/app/api/sentry-example-api/`, `.mcp.json`). Probably delete or gitignore it rather than ship it.
