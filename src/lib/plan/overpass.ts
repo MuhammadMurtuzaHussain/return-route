@@ -2,12 +2,17 @@ import type { AreaData, Feature, FeatureKind, LatLng, Park, ReturnPoint, Source,
 
 // Everything Return Route knows about a place comes from OpenStreetMap through
 // the Overpass API. Public Overpass servers are busy and sometimes fail, so we
-// try a few mirrors and the caller falls back to a saved snapshot.
+// try a few mirrors and the caller falls back to a saved snapshot. They also
+// turn away cloud servers' shared addresses, so the browser can call this too
+// (src/lib/ai/engine.ts) from the walker's own connection.
 
 const MIRRORS = (
   process.env.OVERPASS_URLS ??
-  "https://z.overpass-api.de/api/interpreter,https://overpass-api.de/api/interpreter,https://lz4.overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter"
+  "https://overpass-api.de/api/interpreter,https://overpass.private.coffee/api/interpreter,https://z.overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter"
 ).split(",");
+
+/** Give up on the whole list after this long, so a bad night doesn't hang the request. */
+const TOTAL_MS = 45_000;
 
 export function bbox({ lat, lon }: LatLng, radiusM: number): [number, number, number, number] {
   const dLat = radiusM / 111_320;
@@ -115,15 +120,15 @@ export function parseElements(elements: OsmElement[], center: LatLng, radiusM: n
 
 export async function fetchArea(center: LatLng, radiusM: number, signal?: AbortSignal): Promise<AreaData> {
   const body = new URLSearchParams({ data: buildQuery(center, radiusM) });
+  // Browsers won't send a custom User-Agent, and asking would turn a simple request into a CORS preflight.
+  const headers: Record<string, string> = typeof window === "undefined" ? { "User-Agent": "ReturnRoute/0.1 (+https://github.com/MuhammadMurtuzaHussain/return-route)" } : {};
+  const deadline = Date.now() + TOTAL_MS;
   let lastError: unknown = null;
   for (const url of MIRRORS) {
+    const left = deadline - Date.now();
+    if (left < 3_000) break;
     try {
-      const res = await fetch(url, {
-        method: "POST",
-        body,
-        headers: { "User-Agent": "ReturnRoute/0.1 (+https://github.com/MuhammadMurtuzaHussain/return-route)" },
-        signal: signal ?? AbortSignal.timeout(30_000),
-      });
+      const res = await fetch(url, { method: "POST", body, headers, signal: signal ?? AbortSignal.timeout(Math.min(20_000, left)) });
       if (!res.ok) throw new Error(`${url} → ${res.status}`);
       const text = await res.text();
       if (!text.trimStart().startsWith("{")) throw new Error(`${url} → not JSON`);

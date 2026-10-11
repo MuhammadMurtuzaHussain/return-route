@@ -6,6 +6,9 @@
 //           from /api/prepare, but the model and the haul photo never leave the device.
 
 import { getScheme, type Scheme } from "../countries";
+import { fetchArea } from "../plan/overpass";
+import { areaCenter, radiusFor } from "../plan/select";
+import { fetchWeather } from "../plan/weather";
 import type { PlanResult, Prepared } from "../plan/pipeline";
 import { extractJson, guardPostLine, haulTotals, type HaulTotals } from "./guard";
 import { HAUL_SYSTEM, PLANNER_SYSTEM, POST_SYSTEM, haulPrompt, plannerPrompt, postPrompt, type PostFacts } from "./prompts";
@@ -42,10 +45,29 @@ async function postJson<T>(url: string, body: unknown): Promise<T> {
 
 const request = (p: PlanInput) => ({ ...p, weekday: new Date().getDay() });
 
+/**
+ * Public map and weather servers often turn away a cloud server's shared
+ * address. This phone isn't sharing its address with thousands of apps, so it
+ * fetches the weather itself, and the map too if the server couldn't get it.
+ * It's the same location those servers would see anyway, just without us in between.
+ */
+async function withOwnData<T>(p: PlanInput, url: string): Promise<T> {
+  const weather = await fetchWeather(p.start).catch(() => null);
+  const body = { ...request(p), ...(weather ? { weather } : {}) };
+  try {
+    return await postJson<T>(url, body);
+  } catch (e) {
+    if (!(e instanceof PlanError) || e.code !== "map_unavailable") throw e;
+    const area = await fetchArea(areaCenter(p.start), radiusFor(p.minutes) + 600).catch(() => null);
+    if (!area) throw new PlanError("map_unavailable", "The map servers are busy right now. Try again in a minute, or watch the demo.");
+    return postJson<T>(url, { ...body, area });
+  }
+}
+
 // ---------- server tier ----------
 
 export async function planOnServer(p: PlanInput): Promise<Planned> {
-  return postJson<Planned>("/api/plan", request(p));
+  return withOwnData<Planned>(p, "/api/plan");
 }
 
 export async function checkHaulOnServer(photo: Blob, country: string): Promise<HaulChecked> {
@@ -170,7 +192,7 @@ async function edgeJson<T>(
 }
 
 export async function planOnEdge(p: PlanInput): Promise<Planned> {
-  const prepared = await postJson<Prepared>("/api/prepare", request(p));
+  const prepared = await withOwnData<Prepared>(p, "/api/prepare");
   let pick: PlanPick | null = null;
   let gemmaMs = 0;
   if (prepared.hotspots.length) {

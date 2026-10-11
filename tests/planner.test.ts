@@ -74,3 +74,23 @@ describe("stop names", () => {
     }
   });
 });
+
+describe("real route against the time", () => {
+  it("drops the least promising stop when the real path is too long, and stops at one", async () => {
+    const { routeWithinTime } = await import("@/lib/plan/route");
+    const p = prepare(galway, req("", 30), SCHEMES.ie, null);
+    const g = { stopIds: p.fallback.stopIds, returnPointId: p.fallback.returnPointId, why: {}, title: "t", lookFor: "", tip: "", flags: [] };
+    expect(g.stopIds.length).toBe(2);
+    // A river in the way: every route takes 20 minutes per stop.
+    const slow = async (pts: { lat: number; lon: number }[]) => ({ line: pts, km: 1, minutes: 20 * (pts.length - 2), from: "valhalla" as const });
+    const out = await routeWithinTime(p, g, slow);
+    expect(out.guarded.stopIds.length).toBe(1);
+    expect(out.guarded.flags).toContain("route_too_long");
+    const kept = p.hotspots.find((h) => h.id === out.guarded.stopIds[0])!.expected;
+    const gone = p.hotspots.find((h) => h.id === g.stopIds.find((id) => id !== out.guarded.stopIds[0]))!.expected;
+    expect(kept).toBeGreaterThanOrEqual(gone);
+    // A route that fits is left alone.
+    const quick = async (pts: { lat: number; lon: number }[]) => ({ line: pts, km: 1, minutes: 10, from: "valhalla" as const });
+    expect((await routeWithinTime(p, g, quick)).dropped).toEqual([]);
+  });
+});

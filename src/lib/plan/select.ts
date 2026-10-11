@@ -14,6 +14,15 @@ export function stopsFor(minutes: number): number {
   return minutes <= 35 ? 2 : MAX_STOPS;
 }
 
+/** Radius of map data that covers any walk of this length, rounded so nearby requests share a cache entry. */
+export function radiusFor(minutes: number): number {
+  const reach = budgetM(minutes, 1) / 2 / DETOUR;
+  return Math.min(4000, Math.ceil((reach + 900) / 500) * 500);
+}
+
+/** Snap a start to a ~1 km grid, so a walker moving down the street hits the same cached area. */
+export const areaCenter = (p: LatLng): LatLng => ({ lat: Math.round(p.lat * 100) / 100, lon: Math.round(p.lon * 100) / 100 });
+
 /** Walking budget in metres of real path for this many minutes and stops. */
 export function budgetM(minutes: number, stops: number): number {
   return WALK_M_PER_MIN * Math.max(10, minutes - DWELL_MIN * stops);

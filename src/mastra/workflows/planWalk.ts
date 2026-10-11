@@ -2,11 +2,10 @@ import { createStep, createWorkflow } from "@mastra/core/workflows";
 import { z } from "zod";
 import { guardPlan, type GuardedPlan } from "@/lib/ai/guard";
 import { getScheme, NOT_YET, type Scheme } from "@/lib/countries";
-import { finish, prepare, waypoints, type PlanRequest, type PlanResult, type Prepared } from "@/lib/plan/pipeline";
-import { routeWalk } from "@/lib/plan/route";
-import { fetchWeather } from "@/lib/plan/weather";
+import { finish, prepare, type PlanRequest, type PlanResult, type Prepared } from "@/lib/plan/pipeline";
+import { routeWithinTime } from "@/lib/plan/route";
 import type { AreaData, Weather } from "@/lib/plan/types";
-import { detectPlace, loadArea } from "@/lib/server/area";
+import { detectPlace, loadArea, weatherAt } from "@/lib/server/area";
 import { eventsToday, locateEvents } from "@/lib/server/events";
 import { planRequestSchema, type Gathered, type PlanRequestInput } from "@/lib/server/gather";
 import { reportGuard, traceStep } from "@/lib/server/telemetry";
@@ -52,15 +51,21 @@ const mapStep = createStep({
   description: "Picnic tables, pitches, off-licences and return machines from OpenStreetMap (cached in Render Key Value)",
   inputSchema: passThrough,
   outputSchema: passThrough,
-  execute: async ({ inputData }) => traceStep("map", () => loadArea((inputData as Placed).req.start, (inputData as Placed).req.minutes)),
+  execute: async ({ inputData }) => {
+    const { req } = inputData as Placed;
+    return traceStep("map", async () => (req.area ? { ...req.area, from: "overpass" as const } : loadArea(req.start, req.minutes)));
+  },
 });
 
 const weatherStep = createStep({
   id: "weather",
-  description: "Yesterday's weather from Open-Meteo",
+  description: "Yesterday's weather from Open-Meteo (cached in Render Key Value)",
   inputSchema: passThrough,
   outputSchema: passThrough,
-  execute: async ({ inputData }) => traceStep("weather", () => fetchWeather((inputData as Placed).req.start)),
+  execute: async ({ inputData }) => {
+    const { req } = inputData as Placed;
+    return traceStep("weather", async () => req.weather ?? weatherAt(req.start));
+  },
 });
 
 const eventsStep = createStep({
@@ -81,7 +86,10 @@ const assembleStep = createStep({
       const { req, scheme, town } = getStepResult<Placed>("place");
       const { map, weather, events } = inputData as { map: AreaData; weather: Weather | null; events: Awaited<ReturnType<typeof eventsToday>> };
       const located = await locateEvents(events, town, map);
-      return { prepared: prepare(map, req as PlanRequest, scheme, weather, located), unsupported: null };
+      // The map and weather the browser may have sent are inputs, not part of the request to echo back.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { area, weather: sent, ...request } = req;
+      return { prepared: prepare(map, request as PlanRequest, scheme, weather, located), unsupported: null };
     }),
 });
 
@@ -128,15 +136,17 @@ export type Planned = { result: PlanResult | null; unsupported: Gathered["unsupp
 
 const routeStep = createStep({
   id: "route",
-  description: "Walking route through the stops from Valhalla, and an estimate priced from the deposit table",
+  description: "Walking route from Valhalla, checked against the time (a stop is dropped if the real path is too long), and an estimate priced from the deposit table",
   inputSchema: passThrough,
   outputSchema: passThrough,
   execute: async ({ inputData }): Promise<Planned> =>
     traceStep("route", async () => {
       const { prepared, unsupported, guarded, gemmaMs } = inputData as Picked;
       if (!prepared || !guarded) return { result: null, unsupported, gemmaMs };
-      const route = await routeWalk(waypoints(prepared, guarded));
-      return { result: finish(prepared, guarded, route), unsupported: null, gemmaMs };
+      const fitted = await routeWithinTime(prepared, guarded);
+      const { tier, modelId } = getModelConfig();
+      reportGuard("plan", fitted.dropped, { tier, model: modelId });
+      return { result: finish(prepared, fitted.guarded, fitted.route), unsupported: null, gemmaMs };
     }),
 });
 

@@ -20,12 +20,16 @@ const LABEL: Record<string, string> = {
   invented_return_point: "Gemma picked a return point that wasn't on the map",
   return_point_as_stop: "Gemma listed the return point as a stop too",
   too_long: "Gemma's route didn't fit the time, so stops were dropped",
+  route_too_long: "The real walking path was longer than the time, so a stop was dropped",
   no_valid_stops: "None of Gemma's stops were real, so the default route was used",
   no_model_output: "No usable plan from Gemma, so the default route was used",
   model_error: "Gemma call failed",
   json_retry: "Gemma needed a second try to return valid JSON",
   json_failed: "Gemma never returned valid JSON",
 };
+
+/** A failed workflow's error arrives as a plain object, not an Error. */
+export const failure = (e: unknown) => (e instanceof Error ? e.message : ((e as { message?: string } | null)?.message ?? JSON.stringify(e)));
 
 export const sentryEnabled = () => Boolean(Sentry.getClient()?.getDsn());
 

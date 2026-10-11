@@ -1,7 +1,7 @@
 import { mastra } from "@/mastra";
 import { planRequestSchema, type Gathered } from "@/lib/server/gather";
 import { clientIp, rateLimited } from "@/lib/server/limits";
-import { traceWorkflow } from "@/lib/server/telemetry";
+import { failure, traceWorkflow } from "@/lib/server/telemetry";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -15,12 +15,14 @@ export async function POST(req: Request) {
   try {
     const run = await mastra.getWorkflow("prepareWalkWorkflow").createRun();
     const out = await traceWorkflow("prepare-walk", () => run.start({ inputData: parsed.data }));
-    if (out.status !== "success") throw new Error(out.status === "failed" ? String(out.error) : out.status);
+    if (out.status !== "success") throw new Error(out.status === "failed" ? failure(out.error) : out.status);
     const g = out.result as Gathered;
     if (g.unsupported) return Response.json({ error: "unsupported_country", ...g.unsupported }, { status: 422 });
     return Response.json(g.prepared);
   } catch (e) {
     console.error("[prepare]", e);
-    return Response.json({ error: "map_unavailable", message: String(e) }, { status: 502 });
+    // The public map servers turned this server away; the browser can fetch the map itself and try again.
+    if (/Overpass unavailable/.test(String(e))) return Response.json({ error: "map_unavailable" }, { status: 503 });
+    return Response.json({ error: "prepare_failed", message: String(e) }, { status: 502 });
   }
 }

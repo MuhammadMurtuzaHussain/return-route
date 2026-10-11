@@ -1,10 +1,11 @@
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { DEFAULT_COUNTRY } from "../countries";
-import { DETOUR, haversine } from "../plan/geo";
+import { haversine } from "../plan/geo";
 import { fetchArea } from "../plan/overpass";
-import { budgetM } from "../plan/select";
-import type { AreaData, LatLng } from "../plan/types";
+import { fetchWeather } from "../plan/weather";
+import { areaCenter, radiusFor } from "../plan/select";
+import type { AreaData, LatLng, Weather } from "../plan/types";
 import { kvGet, kvSet } from "./kv";
 
 // Map data with two safety nets: a shared cache (one Overpass call per
@@ -27,16 +28,9 @@ function loadSnapshots(): AreaData[] {
   return snapshots;
 }
 
-/** Radius that covers any walk of this length from here, rounded so nearby requests share a cache entry. */
-export function radiusFor(minutes: number): number {
-  const reach = budgetM(minutes, 1) / 2 / DETOUR;
-  return Math.min(4000, Math.ceil((reach + 900) / 500) * 500);
-}
-
 export async function loadArea(start: LatLng, minutes: number): Promise<AreaData> {
   const radius = radiusFor(minutes);
-  // Snap the centre to a ~1 km grid so a walker moving down the street hits the cache.
-  const center = { lat: Math.round(start.lat * 100) / 100, lon: Math.round(start.lon * 100) / 100 };
+  const center = areaCenter(start);
   const key = `area:${center.lat},${center.lon},${radius}`;
   const hit = await kvGet<AreaData>(key);
   if (hit) return hit;
@@ -68,11 +62,23 @@ export async function detectPlace(p: LatLng): Promise<Place> {
       `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&lat=${p.lat.toFixed(3)}&lon=${p.lon.toFixed(3)}`,
       { headers: { "User-Agent": "ReturnRoute/0.1 (+https://github.com/MuhammadMurtuzaHussain/return-route)" }, signal: AbortSignal.timeout(6000) },
     );
-    const a = ((await res.json()) as { address?: Record<string, string> }).address ?? {};
-    const place = { country: a.country_code?.toLowerCase() ?? DEFAULT_COUNTRY, town: a.city ?? a.town ?? a.village ?? a.municipality ?? null };
+    const a = res.ok ? ((await res.json()) as { address?: Record<string, string> }).address : undefined;
+    // Nominatim turns busy shared servers away (429): fall back, but don't remember the fallback.
+    if (!a?.country_code) return { country: DEFAULT_COUNTRY, town: null };
+    const place = { country: a.country_code.toLowerCase(), town: a.city ?? a.town ?? a.village ?? a.municipality ?? null };
     await kvSet(key, place, 30 * 24 * 60 * 60);
     return place;
   } catch {
     return { country: DEFAULT_COUNTRY, town: null };
   }
+}
+
+/** Weather for a ~5 km cell, shared for two hours: one Open-Meteo call serves a whole town. */
+export async function weatherAt(p: LatLng): Promise<Weather | null> {
+  const key = `weather:${(Math.round(p.lat * 20) / 20).toFixed(2)},${(Math.round(p.lon * 20) / 20).toFixed(2)}`;
+  const hit = await kvGet<Weather>(key);
+  if (hit) return hit;
+  const w = await fetchWeather(p);
+  if (w) await kvSet(key, w, 2 * 60 * 60);
+  return w;
 }

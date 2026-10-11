@@ -1,4 +1,6 @@
-import { DETOUR, WALK_M_PER_MIN, decodePolyline, pathLength } from "./geo";
+import type { GuardedPlan } from "../ai/guard";
+import { DETOUR, DWELL_MIN, WALK_M_PER_MIN, decodePolyline, pathLength } from "./geo";
+import { waypoints, type Prepared } from "./pipeline";
 import type { LatLng } from "./types";
 
 // Walking directions from Valhalla, the open-source routing engine, on the
@@ -40,3 +42,30 @@ export async function routeWalk(points: LatLng[]): Promise<RouteGeometry> {
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+
+/** Walking time plus a few minutes at each stop. */
+export const totalMinutes = (r: RouteGeometry, stops: number) => r.minutes + DWELL_MIN * stops;
+
+/**
+ * Straight lines can't see a river with one bridge. Once the real path is
+ * known, drop the least promising stop (at most twice) until the walk fits
+ * the time the walker picked, give or take a few minutes.
+ */
+export async function routeWithinTime(
+  p: Prepared,
+  g: GuardedPlan,
+  route: (points: LatLng[]) => Promise<RouteGeometry> = routeWalk,
+): Promise<{ guarded: GuardedPlan; route: RouteGeometry; dropped: string[] }> {
+  const limit = Math.max(p.request.minutes * 1.2, p.request.minutes + 5);
+  let current = g;
+  let r = await route(waypoints(p, current));
+  const dropped: string[] = [];
+  while (current.stopIds.length > 1 && dropped.length < 2 && totalMinutes(r, current.stopIds.length) > limit) {
+    const expected = (id: string) => p.hotspots.find((h) => h.id === id)?.expected ?? 0;
+    const worst = [...current.stopIds].sort((a, b) => expected(a) - expected(b))[0];
+    dropped.push(`route_too_long:${totalMinutes(r, current.stopIds.length)}min`);
+    current = { ...current, stopIds: current.stopIds.filter((id) => id !== worst), flags: [...current.flags, "route_too_long"] };
+    r = await route(waypoints(p, current));
+  }
+  return { guarded: current, route: r, dropped };
+}
