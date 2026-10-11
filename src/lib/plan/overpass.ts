@@ -8,10 +8,13 @@ import type { AreaData, Feature, FeatureKind, LatLng, Park, ReturnPoint, Source,
 
 const MIRRORS = (
   process.env.OVERPASS_URLS ??
-  "https://overpass-api.de/api/interpreter,https://overpass.private.coffee/api/interpreter,https://z.overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter"
+  "https://overpass-api.de/api/interpreter,https://overpass.private.coffee/api/interpreter,https://lz4.overpass-api.de/api/interpreter,https://overpass.kumi.systems/api/interpreter"
 ).split(",");
 
-/** Give up on the whole list after this long, so a bad night doesn't hang the request. */
+/** These accept requests from a web page (CORS); the browser fallback uses only them. */
+const BROWSER_MIRRORS = ["https://overpass-api.de/api/interpreter", "https://lz4.overpass-api.de/api/interpreter", "https://z.overpass-api.de/api/interpreter"];
+
+/** Give up after this long, so a bad night doesn't hang the request. */
 const TOTAL_MS = 45_000;
 
 export function bbox({ lat, lon }: LatLng, radiusM: number): [number, number, number, number] {
@@ -123,10 +126,13 @@ export async function fetchArea(center: LatLng, radiusM: number, signal?: AbortS
   // Browsers won't send a custom User-Agent, and asking would turn a simple request into a CORS preflight.
   const headers: Record<string, string> = typeof window === "undefined" ? { "User-Agent": "ReturnRoute/0.1 (+https://github.com/MuhammadMurtuzaHussain/return-route)" } : {};
   const deadline = Date.now() + TOTAL_MS;
+  const list = typeof window === "undefined" ? MIRRORS : BROWSER_MIRRORS;
   let lastError: unknown = null;
-  for (const url of MIRRORS) {
+  // A busy server answers 429 or 504 and is often fine seconds later, so go round the list twice.
+  for (const url of [...list, ...list]) {
     const left = deadline - Date.now();
     if (left < 3_000) break;
+    if (lastError) await new Promise((r) => setTimeout(r, 1_500));
     try {
       const res = await fetch(url, { method: "POST", body, headers, signal: signal ?? AbortSignal.timeout(Math.min(20_000, left)) });
       if (!res.ok) throw new Error(`${url} → ${res.status}`);
