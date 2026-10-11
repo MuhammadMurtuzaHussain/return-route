@@ -30,7 +30,7 @@ Entry for the **DEV Hacktoberfest Open-Source AI Challenge, Week 1: Touch Grass*
 
 ```bash
 pnpm dev          # http://localhost:3100
-pnpm test         # vitest, 49 tests
+pnpm test         # vitest, 54 tests
 pnpm lint
 pnpm eval         # haul-reading eval per tier (needs photos in eval/hauls/, currently empty)
 pnpm eval:plan    # planner eval: 8 Galway walks, results in eval/results/
@@ -88,7 +88,7 @@ This split lets a 2B model on a phone do the job, and it's the story of the DEV 
   - a span per workflow step (map, weather and events overlap, which shows the parallelism);
   - `gen_ai.invoke_agent` and `gen_ai.chat` spans with tokens;
   - `reportGuard`, one issue per rule.
-- **Sentry privacy:** no prompts, coordinates, photos or typed text are sent, and Session Replay is removed. The DSN comes from `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN`, so forks don't report to our project.
+- **Sentry privacy:** no prompts, coordinates, photos or typed text are sent, and Session Replay is removed. `dataCollection` alone didn't do it: Open-Meteo and Nominatim span URLs carried lat/lon, and Redis span descriptions carried cache keys with rounded coordinates and the client IP (rate limiter). `src/lib/privacy.ts` (spread into all three `Sentry.init`s) strips URL query strings and cuts `rr:` keys to their kind. Spans sent before `c914ec5` still hold coordinates until Sentry's retention expires. The DSN comes from `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN`, so forks don't report to our project.
 - **Mastra errors:** a failed step's error comes back as a plain object, not an Error. Read it with `failure()`.
 - **Render:** Blueprint-managed (`render.yaml`), region oregon, free plan, so a cold start after idle takes about 50 s.
   - Key Value `return-route-cache` (Valkey, free, internal only) feeds `REDIS_URL`.
@@ -132,6 +132,8 @@ Built on an Irish waymarked trail post (black post, yellow arrow) and a return m
 - **10–11 Oct:** Sentry agent tracing, SerpApi events, Key Value cache, parallel workflow. Planner eval (before → after): cloud untouched by the guard 7/8 → 8/8, local 6/8 → 7/8; both reached 0 too-long walks and 5/5 finishes where asked. Map data moved to OpenFreeMap tiles, so plans work anywhere in Europe.
 - **11 Oct:** test walk in Galway. The real haul was checked at the Lidl machine (€0.30) and is now in the demo (`ce334b6`). Small hauls show grams recycled ("≈32 g") instead of "0 kg". Render deploy live, `/api/status` returns 200.
 - **11 Oct, evening:** two videos of the walk made in `../return-route-videos` (see below).
+- **11 Oct, late (`3a2118d`, `e364c65`, `097631b`, `c914ec5`):** no stops inside school or childcare grounds or on `access=private` (Overpass `out geom` outlines; tiles use the landuse school/kindergarten polygons, and each POI is now read only from the tile it's in, since a neighbour tile's margin holds only a sliver of the outline). Snapshots refreshed: east Galway lost 17 pitches and 6 picnic tables, the city 51 school pitches and a school playground. Area cache key bumped to `area:v2`. Post images in `docs/post/` (cover, app flow, walk strip, voucher, Sentry and Render shots). Sentry privacy fix. The real walk's estimate was €1.05 to €3.85 (author: a sign the neighbourhood is clean). The college gate was probably Merlin College Secondary School, Doughiska (inferred from the map, not confirmed).
+- **DEV post draft:** `../return-route-dev-post.md`. Agent session saved on DEV as id 815 (unpublished), embedded with `{% agent_session 815 %}`. The phone tier is described as untested (no Android phone).
 
 ## The test walk and the videos
 
@@ -167,8 +169,8 @@ Facts from the walk, for the post (times are Irish time):
   - Render events and Key Value;
   - the Mastra workflow;
   - the `pnpm eval:plan` before and after table.
-- [ ] Write the DEV post (tag `#hf26challenge`, AI disclosure). Lead with the "Gemma judges, code guarantees" split, the eval numbers and the real €0.30 voucher. Embed the full-walk video and use the reel for socials (`../return-route-videos/out/`); the walk facts above have the story.
-- [ ] Maybe: leave out stops inside private grounds (campus, `access=private`) in the planner, after the college-gate dead end on the walk.
+- [ ] Publish the DEV post (draft in `../return-route-dev-post.md`) (tag `#hf26challenge`, AI disclosure). Lead with the "Gemma judges, code guarantees" split, the eval numbers and the real €0.30 voucher. Embed the full-walk video and use the reel for socials (`../return-route-videos/out/`); the walk facts above have the story.
+- [x] Leave out stops inside private grounds (done 11 Oct late, see progress log).
 - [ ] The 9GAG copy doesn't follow the "unverified" rule above yet: `Welcome.tsx` ("Someone in Germany posted on 9GAG…"), `Voucher.tsx` and `Logged.tsx` ("The 9GAG walker did 2,000").
 - [ ] Housekeeping: delete the merged `demo-and-cause-mode` branch on GitHub, and the scratch Canva design "Photo Collage - Sustainability" left from the image experiments.
 - [ ] Decide on the untracked Sentry wizard scaffolding (`src/app/sentry-example-page/`, `src/app/api/sentry-example-api/`, `.mcp.json`). Probably delete or gitignore it rather than ship it.
