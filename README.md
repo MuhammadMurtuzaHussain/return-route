@@ -90,7 +90,7 @@ Planning needs open map, weather and routing services (OpenFreeMap, Open-Meteo, 
 Planning is a [Mastra](https://mastra.ai) workflow ([planWalk.ts](src/mastra/workflows/planWalk.ts)). The map, the weather and today's events are fetched in parallel.
 
 ```mermaid
-flowchart LR
+flowchart TB
   place["<b>place</b><br/>which deposit scheme"] --> map["<b>map</b><br/>OpenStreetMap places"]
   place --> weather["<b>weather</b><br/>Open-Meteo"]
   place --> events["<b>events</b><br/>SerpApi, optional"]
