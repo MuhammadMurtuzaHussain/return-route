@@ -40,7 +40,22 @@ function downloadGpx(plan: Planned) {
 
 const TIER_WORDS = { edge: "on this phone", local: "on a laptop", cloud: "in the cloud" } as const;
 
-export function RouteView({ plan, onHaul }: { plan: Planned; onHaul: () => void }) {
+export function RouteView({
+  plan,
+  onHaul,
+  cause,
+  walking,
+  onWalked,
+  demo,
+}: {
+  plan: Planned;
+  onHaul: () => void;
+  cause?: string | null;
+  walking?: boolean;
+  onWalked?: () => void;
+  /** In the guided demo the walk plays on the map instead of opening Google Maps. */
+  demo?: boolean;
+}) {
   const reduce = useReducedMotion();
   const [speaking, setSpeaking] = useState(false);
   const [canSpeak, setCanSpeak] = useState(false);
@@ -67,7 +82,7 @@ export function RouteView({ plan, onHaul }: { plan: Planned; onHaul: () => void 
 
   return (
     <div className="flex flex-col">
-      <RouteMap plan={plan} className="-mx-4 h-[52dvh] min-h-72 bg-sunk" />
+      <RouteMap plan={plan} walking={walking} onWalked={onWalked} className="-mx-4 h-[52dvh] min-h-72 bg-sunk" />
 
       <div className="relative -mx-4 -mt-6 rounded-t-[20px] bg-bg px-4 pt-6">
         <motion.header {...rise(0)} className="flex flex-col gap-3">
@@ -93,7 +108,7 @@ export function RouteView({ plan, onHaul }: { plan: Planned; onHaul: () => void 
             <span className="tabular bg-mark px-1.5 text-on-mark [box-decoration-break:clone]">{formatMoney(e.moneyHigh, e.currency)}</span>
           </p>
           <p className="mt-3 max-w-[38ch] text-[15px] leading-relaxed text-muted">
-            Roughly {e.containersLow} to {e.containersHigh} containers{plan.donate ? ", all of it for charity" : ""}. A guess, and it gets sharper every walk you log.
+            Roughly {e.containersLow} to {e.containersHigh} containers{plan.donate ? `, all of it for ${cause || "charity"}` : ""}. A guess, and it gets sharper every walk you log.
           </p>
         </motion.section>
 
@@ -114,7 +129,7 @@ export function RouteView({ plan, onHaul }: { plan: Planned; onHaul: () => void 
               <span className="text-[17px] font-semibold leading-snug">Cash in at {plan.returnPoint.name}</span>
               <span className="text-[15px] leading-relaxed text-muted">
                 {plan.returnPoint.confidence === "machine" ? "A return machine on the map." : "Most big supermarkets take returns. Ask at the door if you can't see the machine."}
-                {plan.donate ? " Look for the donate button." : ""}
+                {plan.donate ? " Press its charity button instead of printing a voucher." : ""}
               </span>
             </div>
           </li>
@@ -141,30 +156,34 @@ export function RouteView({ plan, onHaul }: { plan: Planned; onHaul: () => void 
         </motion.button>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-bg/92 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
-        <div className="mx-auto flex max-w-xl gap-2">
-          <LinkButton href={plan.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="min-h-14 flex-1 text-base">
-            <NavigationArrow size={20} weight="fill" />
-            Start walking
-          </LinkButton>
-          {canSpeak && (
+      {!demo && (
+        <div className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-bg/92 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+          <div className="mx-auto flex max-w-xl gap-2">
+            <LinkButton href={plan.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="min-h-14 flex-1 text-base">
+              <NavigationArrow size={20} weight="fill" />
+              Start walking
+            </LinkButton>
+            {canSpeak && (
+              <button
+                onClick={toggleBriefing}
+                className="flex min-h-14 w-[4.5rem] flex-col items-center justify-center gap-0.5 rounded-xl bg-post text-on-post transition active:scale-[0.97]"
+                aria-label={speaking ? "Stop the briefing" : "Hear the briefing"}
+              >
+                {speaking ? <Stop size={18} weight="fill" /> : <SpeakerHigh size={18} />}
+                <span className="font-mono text-[10px] uppercase">{speaking ? "Stop" : "Briefing"}</span>
+              </button>
+            )}
             <button
-              onClick={toggleBriefing}
-              className="grid min-h-14 w-14 place-items-center rounded-xl bg-post text-on-post transition active:scale-[0.97]"
-              aria-label={speaking ? "Stop the briefing" : "Hear the briefing"}
+              onClick={() => downloadGpx(plan)}
+              className="flex min-h-14 w-[4.5rem] flex-col items-center justify-center gap-0.5 rounded-xl bg-post text-on-post transition active:scale-[0.97]"
+              aria-label="Download GPX for Strava, Komoot or OsmAnd"
             >
-              {speaking ? <Stop size={20} weight="fill" /> : <SpeakerHigh size={20} />}
+              <DownloadSimple size={18} />
+              <span className="font-mono text-[10px] uppercase">GPX</span>
             </button>
-          )}
-          <button
-            onClick={() => downloadGpx(plan)}
-            className="grid min-h-14 w-14 place-items-center rounded-xl bg-post text-on-post transition active:scale-[0.97]"
-            aria-label="Download GPX for Strava, Komoot or OsmAnd"
-          >
-            <DownloadSimple size={20} />
-          </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -7,11 +7,12 @@ import { useCallback, useEffect, useState } from "react";
 
 export type Totals = { earned: number; donated: number; containers: number; walks: number; currency: string };
 export type Goal = { label: string; amount: number };
-export type Settings = { engine: "server" | "edge"; country: string | null };
+export type Mode = "earn" | "cause";
+export type Settings = { engine: "server" | "edge"; country: string | null; mode: Mode; cause: string };
 
 export const DEFAULT_TOTALS: Totals = { earned: 0, donated: 0, containers: 0, walks: 0, currency: "EUR" };
 export const DEFAULT_GOAL: Goal = { label: "A PS5", amount: 500 };
-export const DEFAULT_SETTINGS: Settings = { engine: "server", country: null };
+export const DEFAULT_SETTINGS: Settings = { engine: "server", country: null, mode: "earn", cause: "" };
 
 const KEY = "return-route";
 

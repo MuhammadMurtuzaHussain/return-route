@@ -110,7 +110,7 @@ describe("briefing", () => {
   it("names real places from the map, in order", () => {
     const b = composeBriefing({ startNear: "Terryland Forest Park", stops: ["Eyre Square", "Fisheries Field"], returnPoint: "Aldi return machine", donate: true, lookFor: "", tip: "Gloves on" });
     expect(b).toBe(
-      "From Terryland Forest Park, head to Eyre Square first, then Fisheries Field. Check under benches, along hedges and around the bins as you go. Finish at Aldi return machine and donate the refund. Gloves on.",
+      "From Terryland Forest Park, head to Eyre Square first, then Fisheries Field. Check under benches, along hedges and by the pitch edges as you go. Finish at Aldi return machine and donate the refund. Gloves on.",
     );
   });
 });

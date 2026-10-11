@@ -2,15 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { Check } from "@phosphor-icons/react";
+import { Check, X } from "@phosphor-icons/react";
 import type { Tier } from "@/lib/ai/schema";
 
 const WHERE: Record<Tier, string> = { edge: "on this phone", local: "on the laptop", cloud: "in the cloud" };
 
 /** Loading state shaped like the route it is about to show, with honest steps. */
-export function Planning({ tier, minutes }: { tier: Tier; minutes: number }) {
+export function Planning({ tier, minutes, forCause, onCancel }: { tier: Tier; minutes: number; forCause?: boolean; onCancel?: () => void }) {
   const reduce = useReducedMotion();
-  const steps = ["Reading the map around you", "Checking yesterday's weather", `Gemma ${WHERE[tier]} is picking stops`, "Drawing the route"];
+  const steps = [
+    "Reading the map around you",
+    "Checking yesterday's weather",
+    forCause ? `Gemma ${WHERE[tier]} is finding where you're needed` : `Gemma ${WHERE[tier]} is picking stops`,
+    "Drawing the route",
+  ];
   const [step, setStep] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setStep((s) => Math.min(s + 1, steps.length - 1)), tier === "edge" ? 4000 : 2200);
@@ -28,7 +33,15 @@ export function Planning({ tier, minutes }: { tier: Tier; minutes: number }) {
         />
       </div>
       <div>
-        <p className="sign text-[2.4rem] font-bold uppercase leading-none">{minutes === 60 ? "One hour" : `${minutes} minutes`}</p>
+        <div className="flex items-start justify-between gap-3">
+          <p className="sign text-[2.4rem] font-bold uppercase leading-none">{minutes === 60 ? "One hour" : `${minutes} minutes`}</p>
+          {onCancel && (
+            <button onClick={onCancel} className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-line px-3 text-[14px] font-medium text-muted hover:text-ink">
+              <X size={16} />
+              Cancel
+            </button>
+          )}
+        </div>
         <ol className="mt-5 flex flex-col gap-3 font-mono text-[13px] uppercase">
           {steps.map((s, i) => (
             <li key={s} className={`flex items-center gap-3 transition ${i > step ? "text-muted/50" : i === step ? "text-ink" : "text-muted"}`}>

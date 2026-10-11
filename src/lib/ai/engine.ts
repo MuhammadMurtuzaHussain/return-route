@@ -7,8 +7,8 @@
 
 import { getScheme, type Scheme } from "../countries";
 import type { PlanResult, Prepared } from "../plan/pipeline";
-import { extractJson, haulTotals, type HaulTotals } from "./guard";
-import { HAUL_SYSTEM, PLANNER_SYSTEM, haulPrompt, plannerPrompt } from "./prompts";
+import { extractJson, guardPostLine, haulTotals, type HaulTotals } from "./guard";
+import { HAUL_SYSTEM, PLANNER_SYSTEM, POST_SYSTEM, haulPrompt, plannerPrompt, postPrompt, type PostFacts } from "./prompts";
 import { haulSchema, planPickSchema, type HaulReading, type PlanPick, type Tier } from "./schema";
 import type { Outbound } from "./edge.worker";
 
@@ -56,6 +56,16 @@ export async function checkHaulOnServer(photo: Blob, country: string): Promise<H
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new PlanError(json.error ?? "failed", "Gemma couldn't read that photo. Try again in better light.");
   return json as HaulChecked;
+}
+
+/** One line from Gemma for the walker's post, wherever Gemma is running. */
+export async function draftPostLine(facts: PostFacts, onEdge: boolean): Promise<string> {
+  if (onEdge) {
+    const r = await edge.generate(POST_SYSTEM, postPrompt(facts), 80);
+    return guardPostLine(r.text);
+  }
+  const { line } = await postJson<{ line: string }>("/api/post", facts);
+  return line;
 }
 
 // ---------- edge tier ----------

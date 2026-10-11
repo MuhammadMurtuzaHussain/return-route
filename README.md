@@ -2,7 +2,7 @@
 
 **A walk that pays.** Tell it how long you've got. It plans a loop through the spots where drink cans and bottles get left behind (picnic tables, pitches, viewpoints near off-licences) and finishes at a deposit return machine. It gives you an honest estimate of what you'll make, hands the route to Google Maps, and then gets out of your way.
 
-When you're back, take one photo of your haul. Gemma counts the containers, flags the ones the machine will refuse and works out your refund from the deposit table. You can keep the money, or tick **Donate** and give it away.
+When you're back, take one photo of your haul. Gemma counts the containers, flags the ones the machine will refuse and works out your refund from the deposit table. You can keep the money, or switch to **Walk for a cause** and give it away: the app turns green, counts what you've given, and Gemma drafts a post to get others walking.
 
 Built for the [Hacktoberfest Open-Source AI Challenge, Week 1: Touch Grass](https://dev.to/challenges/hf26). It covers Ireland's Re-turn scheme and 18 other European deposit schemes. Return Route is unofficial and not affiliated with Re-turn or any scheme operator.
 
@@ -53,6 +53,7 @@ pnpm dev                       # http://localhost:3100
 ```
 
 - **Phone tier:** open the app in Chrome (Android or desktop), go to Settings and choose **On this phone**. The first time, it downloads about 3.4 GB of weights, so use wifi.
+- **Guided demo:** open [`/?demo`](http://localhost:3100/?demo), or tap **Watch the demo** on the home screen. It plans a real walk from Terryland Forest Park with Gemma, plays the walk on the map, reads a sample haul photo, gives the refund away and drafts the post. If Gemma can't be reached it shows a recorded plan and reading, and says so. Your real totals are never touched.
 - **Tests:** `pnpm test`
 - **Haul-reading eval per tier:** add photos and true counts to `eval/hauls/`, then run `pnpm eval`.
 
@@ -64,6 +65,7 @@ pnpm dev                       # http://localhost:3100
 - Weather from [Open-Meteo](https://open-meteo.com).
 - Deposit rates come from [re-turn.ie](https://re-turn.ie) and TOMRA's 2026 overview.
 - `data/galway.json` is an OpenStreetMap snapshot, so the demo works when Overpass is busy.
+- The demo's sample haul photo (`public/demo/haul.jpg`) was generated with [FLUX.1-dev](https://huggingface.co/black-forest-labs/FLUX.1-dev) on its Hugging Face Space, with deposit-mark stickers added. Swap in a real photo any time.
 
 ## Good manners
 

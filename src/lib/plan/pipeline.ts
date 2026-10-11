@@ -93,7 +93,7 @@ export const shortName = (label: string) => {
   return GENERIC.has(first) && rest.length ? rest.join(", ") : first;
 };
 
-export const DEFAULT_LOOK_FOR = "Check under benches, along hedges and around the bins as you go.";
+export const DEFAULT_LOOK_FOR = "Check under benches, along hedges and by the pitch edges as you go.";
 export const DEFAULT_TIP = "Ground litter only, gloves on, and leave anything broken.";
 
 /**

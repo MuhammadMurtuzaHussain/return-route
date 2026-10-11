@@ -1,9 +1,9 @@
 import type { z } from "zod";
-import { haulAgent, plannerAgent } from "./agents";
+import { haulAgent, plannerAgent, postAgent } from "./agents";
 import { getModelConfig } from "./model";
-import { haulPrompt, plannerPrompt, type PlannerInput } from "@/lib/ai/prompts";
+import { haulPrompt, plannerPrompt, postPrompt, type PlannerInput, type PostFacts } from "@/lib/ai/prompts";
 import { haulSchema, planPickSchema, type HaulReading, type PlanPick } from "@/lib/ai/schema";
-import { extractJson } from "@/lib/ai/guard";
+import { extractJson, guardPostLine } from "@/lib/ai/guard";
 import type { Scheme } from "@/lib/countries";
 
 // Server-side Gemma calls (laptop and cloud tiers). Ollama gets native JSON
@@ -52,4 +52,11 @@ export async function readHaulWithGemma(image: Uint8Array, mediaType: string, sc
     haulSchema,
     2048,
   );
+}
+
+/** One line for the walker's social post. Plain text; the guard strips numbers and tags. */
+export async function writePostWithGemma(facts: PostFacts): Promise<string> {
+  const { providerOptions } = getModelConfig();
+  const res = await postAgent.generate(postPrompt(facts), { modelSettings: { temperature: 0.8, maxOutputTokens: 120 }, providerOptions });
+  return guardPostLine(res.text ?? "");
 }

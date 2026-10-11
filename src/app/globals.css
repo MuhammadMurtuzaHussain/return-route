@@ -57,6 +57,57 @@
   color-scheme: dark;
 }
 
+/*
+  Cause mode: walking to give. The waymark turns from trail yellow to a
+  fresh, hopeful green and the whole page warms with it.
+*/
+:root[data-mode="cause"] {
+  --bg: #edf3ec;
+  --surface: #f7fbf5;
+  --sunk: #dde8d9;
+  --ink: #12201a;
+  --muted: #4e6157;
+  --line: #c9d9c6;
+  --post: #163a2b;
+  --on-post: #edf3ec;
+  --mark: #4cc38a;
+  --on-mark: #0c1f15;
+  --mark-ink: #1d7a4f;
+  --paper: #fbfdf9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"])[data-mode="cause"] {
+    --bg: #0e1712;
+    --surface: #15221b;
+    --sunk: #09110d;
+    --ink: #e4efe7;
+    --muted: #93a99b;
+    --line: #243a2e;
+    --post: #1b3527;
+    --on-post: #e4efe7;
+    --mark: #5fd39a;
+    --on-mark: #0a1a12;
+    --mark-ink: #6fdca6;
+    --paper: #17251d;
+  }
+}
+
+:root[data-theme="dark"][data-mode="cause"] {
+  --bg: #0e1712;
+  --surface: #15221b;
+  --sunk: #09110d;
+  --ink: #e4efe7;
+  --muted: #93a99b;
+  --line: #243a2e;
+  --post: #1b3527;
+  --on-post: #e4efe7;
+  --mark: #5fd39a;
+  --on-mark: #0a1a12;
+  --mark-ink: #6fdca6;
+  --paper: #17251d;
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -78,6 +129,15 @@ html,
 body {
   background: var(--bg);
   color: var(--ink);
+  transition:
+    background-color 0.5s ease,
+    color 0.5s ease;
+}
+
+/* Keep the scrollbar's space even when a screen is short, so the page never jumps sideways
+   when switching modes or screens. */
+html {
+  scrollbar-gutter: stable;
 }
 
 body {
@@ -113,6 +173,21 @@ p {
 /* A fingerpost blade: an arrow pointing the way. */
 .blade {
   clip-path: polygon(0 0, calc(100% - 28px) 0, 100% 50%, calc(100% - 28px) 100%, 0 100%);
+}
+
+/* The demo points at a sign by nudging it along, like a hand on the post. */
+@keyframes nudge {
+  0%,
+  60%,
+  100% {
+    transform: translateX(0);
+  }
+  30% {
+    transform: translateX(12px);
+  }
+}
+.nudge {
+  animation: nudge 1.6s ease-in-out infinite;
 }
 
 /* Thermal voucher: torn zigzag top and bottom. */

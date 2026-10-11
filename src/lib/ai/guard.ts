@@ -52,7 +52,7 @@ export function guardPlan(
     if (seen.has(h.id)) continue;
     seen.add(h.id);
     stops.push(h);
-    why[h.id] = clean(s.why, 160);
+    why[h.id] = leaveBins(clean(s.why, 160));
   }
 
   let rp = rpById.get(pick.returnPointId.trim());
@@ -84,9 +84,9 @@ export function guardPlan(
     stopIds,
     returnPointId,
     why,
-    title: namesAPlace(stripMoney(clean(pick.title, 60)), [...stops.map((h) => h.label), rp?.name ?? ""]) || ctx.defaultTitle,
-    lookFor: stripMoney(clean(pick.lookFor, 200)),
-    tip: stripMoney(clean(pick.tip, 160)),
+    title: walkTitle(namesAPlace(stripMoney(clean(pick.title, 60)), [...stops.map((h) => h.label), rp?.name ?? ""])) || ctx.defaultTitle,
+    lookFor: leaveBins(stripMoney(clean(pick.lookFor, 200))),
+    tip: leaveBins(stripMoney(clean(pick.tip, 160))),
     flags,
   };
 }
@@ -96,6 +96,40 @@ export function namesAPlace(title: string, places: string[]): string {
   const words = new Set(places.join(" ").toLowerCase().match(/[a-z\u00c0-\u024f']{4,}/g) ?? []);
   for (const generic of ["park", "picnic", "tables", "pitch", "pitches", "benches", "playground", "return", "machine"]) words.delete(generic);
   return (title.toLowerCase().match(/[a-z\u00c0-\u024f']{4,}/g) ?? []).some((w) => words.has(w)) ? title : "";
+}
+
+/** "Park Waste Collection" names no place; "Eyre Square Park Run" isn't a run. Returns "" for a generic title. */
+export function walkTitle(title: string): string {
+  if (!title || /\b(collection|waste|litter|deposit|clean-?up|refund)\b/i.test(title)) return "";
+  return title.replace(/\b(run|jog|race|sprint)\b/gi, "loop");
+}
+
+/** Bins belong to the people who rely on them. Keep "leave bins alone", drop "look in the bins". */
+export function leaveBins(s: string): string {
+  return s
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => !/\bbins?\b|pfandring/i.test(sentence) || /\b(leave|don'?t|do not|never|avoid|not)\b/i.test(sentence))
+    .join(" ")
+    .trim();
+}
+
+/** Gemma's note on a haul, minus the "I have identified 7 containers" narration. */
+export function cleanNotes(s: string): string {
+  return s
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => sentence && !/\b(based on|identified|i (can )?see|the image|this image|the photo shows)\b|\d/i.test(sentence))
+    .join(" ")
+    .trim();
+}
+
+/** A line Gemma writes for a social post. No numbers (the app adds the real ones), no tags, one sentence-ish. */
+export function guardPostLine(s: string): string {
+  const line = stripMoney(s.replace(/["“”]/g, "").replace(/#\S+/g, "").replace(/\s+/g, " ").trim())
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => !/\d/.test(sentence))
+    .slice(0, 2)
+    .join(" ");
+  return line.length > 140 ? `${line.slice(0, 139).replace(/\s+\S*$/, "")}…` : line;
 }
 
 /** Gemma's words are read aloud; they must not promise money the app did not compute. */

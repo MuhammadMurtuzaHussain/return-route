@@ -108,3 +108,36 @@ describe("titles", () => {
     expect(namesAPlace("Park Collections", ["Kennedy Park Playground, Eyre Square"])).toBe("");
   });
 });
+
+describe("words Gemma doesn't get to say", () => {
+  it("rejects generic walk titles and turns runs into walks", async () => {
+    const { walkTitle } = await import("@/lib/ai/guard");
+    expect(walkTitle("Park Waste Collection")).toBe("");
+    expect(walkTitle("Eyre Square Park Run")).toBe("Eyre Square Park loop");
+    expect(walkTitle("Westside pitches and back")).toBe("Westside pitches and back");
+  });
+
+  it("keeps people out of bins but keeps the advice to leave them", async () => {
+    const { leaveBins } = await import("@/lib/ai/guard");
+    expect(leaveBins("Look under the benches. Check near the bins at the playground.")).toBe("Look under the benches.");
+    expect(leaveBins("Leave bins alone, they're someone's income.")).toBe("Leave bins alone, they're someone's income.");
+  });
+
+  it("strips numbers, money and hashtags from Gemma's post line", async () => {
+    const { guardPostLine } = await import("@/lib/ai/guard");
+    expect(guardPostLine('"Out in the sunshine, doing my bit." I made €5 today! #green')).toBe("Out in the sunshine, doing my bit.");
+  });
+
+  it("drops the model's narration from haul notes", async () => {
+    const { cleanNotes } = await import("@/lib/ai/guard");
+    expect(cleanNotes("Based on the image provided, I have identified 7 drink containers. Leave the crushed can out.")).toBe("Leave the crushed can out.");
+  });
+
+  it("composes a post whose numbers come from the voucher", async () => {
+    const { composePost } = await import("@/lib/client/share");
+    const text = composePost({ line: "Good walk.", containers: 7, amount: 1, currency: "EUR", donated: true, cause: "the food bank", place: "Eyre Square" }, "https://x.test");
+    expect(text).toContain("7 dropped cans and bottles around Eyre Square");
+    expect(text).toContain("to the food bank");
+    expect(text.length).toBeLessThanOrEqual(280);
+  });
+});

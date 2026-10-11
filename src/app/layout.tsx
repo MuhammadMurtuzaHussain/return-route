@@ -35,7 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem("return-route.theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t}catch(e){}`,
+            __html: `try{var d=document.documentElement,t=localStorage.getItem("return-route.theme");if(t==="light"||t==="dark")d.dataset.theme=t;var s=JSON.parse(localStorage.getItem("return-route.settings")||"{}");if(s.mode==="cause"||/[?&]demo/.test(location.search))d.dataset.mode="cause"}catch(e){}`,
           }}
         />
       </head>

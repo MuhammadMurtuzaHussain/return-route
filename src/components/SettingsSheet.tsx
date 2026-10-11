@@ -7,6 +7,7 @@ import { SCHEMES } from "@/lib/countries";
 import { EDGE_MODEL_LABEL, edge, edgeSupport, type EdgeSupport } from "@/lib/ai/engine";
 import type { Goal, Settings } from "@/lib/client/store";
 import type { Tier } from "@/lib/ai/schema";
+import { useDialog } from "@/lib/client/useDialog";
 import { Button } from "./ui";
 
 export type ServerStatus = { tier: Exclude<Tier, "edge">; model: string; ready: boolean } | null;
@@ -35,6 +36,7 @@ export function SettingsSheet({
   const [progress, setProgress] = useState<{ loaded: number; total: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [edgeError, setEdgeError] = useState<string | null>(null);
+  const ref = useDialog<HTMLDivElement>(open, onClose);
 
   useEffect(() => {
     if (open && !support) edgeSupport().then(setSupport);
@@ -69,8 +71,9 @@ export function SettingsSheet({
     <AnimatePresence>
       {open && (
         <motion.div className="fixed inset-0 z-20 flex items-end justify-center sm:items-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <button className="absolute inset-0 bg-ink/40" aria-label="Close settings" onClick={onClose} />
+          <button className="absolute inset-0 bg-ink/40" aria-label="Close settings" tabIndex={-1} onClick={onClose} />
           <motion.div
+            ref={ref}
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-title"
@@ -91,7 +94,10 @@ export function SettingsSheet({
 
             <section className="flex flex-col gap-3">
               <h3 className="font-medium">Where Gemma runs</h3>
-              <p className="text-sm text-muted">Same open-weight model family either way. You choose who sees your location and your photos.</p>
+              <p className="text-sm text-muted">
+                Same open-weight model family either way. You choose who sees your location and your photos.
+                {server?.tier === "cloud" ? " This server sends them to Google AI Studio; on your phone, photos never leave it." : ""}
+              </p>
 
               <button
                 onClick={() => setSettings({ ...settings, engine: "server" })}
