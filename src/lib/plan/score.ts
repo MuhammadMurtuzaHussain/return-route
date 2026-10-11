@@ -40,6 +40,12 @@ export const KIND_LABEL: Record<FeatureKind, [string, string]> = {
   shelter: ["Shelter", "Shelters"],
 };
 
+/** Street furniture counts up to this many per cell. */
+const CAP: Partial<Record<FeatureKind, number>> = { bin: 4, bench: 8 };
+
+/** Bins on their own are just a street; in a park they mark where people sit. */
+const ONLY_FURNITURE = new Set<FeatureKind>(["bin", "bench"]);
+
 /** Grid cell size in metres. Features in one cell become one stop. */
 const CELL_M = 160;
 const SOURCE_RADIUS_M = 250;
@@ -99,8 +105,9 @@ export function buildHotspots(area: AreaData, ctx: Context): Hotspot[] {
     const at = { lat, lon };
 
     // Ten benches are not ten times one bench: diminishing returns per kind.
+    // Some cities map every street bin and bench, so past a few they say nothing more.
     let base = 0;
-    for (const [k, n] of Object.entries(c.kinds) as [FeatureKind, number][]) base += PRIOR[k] * n ** 0.7;
+    for (const [k, n] of Object.entries(c.kinds) as [FeatureKind, number][]) base += PRIOR[k] * Math.min(n, CAP[k] ?? n) ** 0.7;
     // A lone bench or bin is not worth a detour.
     if (base < 0.3) continue;
 
@@ -130,8 +137,11 @@ export function buildHotspots(area: AreaData, ctx: Context): Hotspot[] {
     if (learnt < 0.9) reasons.push("quiet last time");
 
     const park = nearestPark(area, at);
-    const [k0, n0] = top[0];
-    const what = c.names[0] ?? KIND_LABEL[k0][n0 > 1 ? 1 : 0];
+    const furnitureOnly = top.every(([k]) => k === "bin");
+    if (furnitureOnly && !park) continue;
+    // Name a stop after what people come for, not the bins: "Pitches, Monbijoupark", or just "Monbijoupark".
+    const [k0, n0] = top.find(([k]) => !ONLY_FURNITURE.has(k)) ?? top[0];
+    const what = c.names[0] ?? (furnitureOnly ? park! : KIND_LABEL[k0][n0 > 1 ? 1 : 0]);
     const label = park && park !== what ? `${what}, ${park}` : what;
 
     out.push({ id, lat, lon, label, kinds: c.kinds, nearbySources: near, expected: round1(expected), score: round1(expected), reasons });

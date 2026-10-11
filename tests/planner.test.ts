@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { guardPlan } from "@/lib/ai/guard";
 import { plannerPrompt } from "@/lib/ai/prompts";
-import { distinctLabels, prepare, shortName, type PlanRequest } from "@/lib/plan/pipeline";
+import { distinctLabels, prepare, shortName, spokenNames, type PlanRequest } from "@/lib/plan/pipeline";
+import { tileFeatureKind } from "@/lib/plan/tiles";
 import { askedForReturnPoint, fits } from "@/lib/plan/select";
 import { SCHEMES } from "@/lib/countries";
 import type { AreaData, Hotspot } from "@/lib/plan/types";
@@ -66,6 +67,13 @@ describe("stop names", () => {
     expect(shortName(out[0].label)).toBe("the north end of Wildflower Meadow");
   });
 
+  it("names unnamed look-alikes by distance and direction from the walker", () => {
+    const from = { lat: 53.28, lon: -9.05 };
+    const out = distinctLabels([h("a", 53.2836, -9.05, "Pitch"), h("b", 53.28, -9.044, "Pitch")], from);
+    expect(out.map((x) => x.label)).toEqual(["Pitch, 400 m north", "Pitch, 400 m east"]);
+    expect(shortName(out[0].label)).toBe("the pitch 400 m north");
+  });
+
   it("never offers Gemma two stops with the same name", () => {
     for (const start of [terryland, { lat: 53.2745, lon: -9.049 }, { lat: 53.2685, lon: -9.0575 }]) {
       const p = prepare(galway, { ...req(""), start, minutes: 60 }, SCHEMES.ie, null);
@@ -92,5 +100,21 @@ describe("real route against the time", () => {
     // A route that fits is left alone.
     const quick = async (pts: { lat: number; lon: number }[]) => ({ line: pts, km: 1, minutes: 10, from: "valhalla" as const });
     expect((await routeWithinTime(p, g, quick)).dropped).toEqual([]);
+  });
+});
+
+describe("map tiles", () => {
+  it("reads the planner's kinds from OpenMapTiles classes and skips tracks nobody hangs out at", () => {
+    expect(tileFeatureKind({ class: "pitch", subclass: "soccer" })).toBe("pitch");
+    expect(tileFeatureKind({ class: "pitch", subclass: "skateboard" })).toBe("skate");
+    expect(tileFeatureKind({ class: "pitch", subclass: "karting" })).toBeNull();
+    expect(tileFeatureKind({ class: "picnic_site", subclass: "picnic_site" })).toBe("picnic");
+    expect(tileFeatureKind({ class: "waste_basket", subclass: "waste_basket" })).toBe("bin");
+    expect(tileFeatureKind({ class: "parking", subclass: "parking" })).toBeNull();
+  });
+
+  it("says two stops in the same park differently", () => {
+    expect(spokenNames(["Pitches, Monbijoupark", "Pitch, Monbijoupark"])).toEqual(["the pitches in Monbijoupark", "the pitch in Monbijoupark"]);
+    expect(spokenNames(["Pitches, Monbijoupark", "Playground, Tiergarten"])).toEqual(["Monbijoupark", "Tiergarten"]);
   });
 });

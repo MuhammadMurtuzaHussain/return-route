@@ -172,6 +172,9 @@ importers:
       '@huggingface/transformers':
         specifier: ^4.0.0
         version: 4.3.1(@types/node@20.19.43)
+      '@mapbox/vector-tile':
+        specifier: ^2.0.5
+        version: 2.0.5
       '@mastra/core':
         specifier: ^1.73.0
         version: 1.75.0(@grpc/grpc-js@1.14.6)(ai@7.0.133(zod@4.6.5))(supports-color@7.2.0)(zod@4.6.5)
@@ -199,6 +202,9 @@ importers:
       ollama-ai-provider-v2:
         specifier: ^4.0.1
         version: 4.0.1(ai@7.0.133(zod@4.6.5))(zod@4.6.5)
+      pbf:
+        specifier: ^4.0.2
+        version: 4.0.2
       react:
         specifier: 19.2.8
         version: 19.2.8

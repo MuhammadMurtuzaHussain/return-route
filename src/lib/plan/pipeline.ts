@@ -66,7 +66,7 @@ export function prepare(area: AreaData, req: PlanRequest, scheme: Scheme, weathe
       if (h) offered.push({ ...h, distM: dist(h) });
     }
   }
-  const hotspots = distinctLabels(offered);
+  const hotspots = distinctLabels(offered, req.start);
   const returnPoints = rps.map((r) => ({ ...r, distM: dist(r) }));
 
   const first = offered.find((h) => h.id === fallback.stopIds[0]);
@@ -108,33 +108,60 @@ const GENERIC = new Set(Object.values(KIND_LABEL).flat());
 /**
  * Two stops called "Pitch, Wildflower Meadow" read like a bug, and the spoken
  * briefing would send you to the same place twice. Name them by which end of
- * the place they are at instead.
+ * the place they are at, or, with no place name or too many of them, by how
+ * far and which way they are from where you stand.
  */
-export function distinctLabels<T extends Hotspot>(hotspots: T[]): T[] {
+export function distinctLabels<T extends Hotspot>(hotspots: T[], from?: LatLng): T[] {
   const groups = new Map<string, T[]>();
   for (const h of hotspots) groups.set(h.label, [...(groups.get(h.label) ?? []), h]);
   const renamed = new Map<string, string>();
   for (const [label, group] of groups) {
     if (group.length < 2) continue;
-    const lats = group.map((h) => h.lat);
-    const lons = group.map((h) => h.lon * Math.cos((h.lat * Math.PI) / 180));
-    const northSouth = Math.max(...lats) - Math.min(...lats) >= Math.max(...lons) - Math.min(...lons);
-    const sorted = [...group].sort((a, b) => (northSouth ? b.lat - a.lat : a.lon - b.lon));
-    const ends = northSouth ? ["north", "middle", "south"] : ["west", "middle", "east"];
     const [kind, ...rest] = label.split(", ");
     const place = rest.join(", ");
-    sorted.forEach((h, i) => {
-      const end = sorted.length === 2 ? [ends[0], ends[2]][i] : sorted.length === 3 ? ends[i] : null;
-      if (!end) renamed.set(h.id, `${label} (${i + 1})`);
-      else renamed.set(h.id, place ? `${kind}, ${end} end of ${place}` : `${label}, ${end} end`);
+    if (place && group.length <= 3) {
+      const lats = group.map((h) => h.lat);
+      const lons = group.map((h) => h.lon * Math.cos((h.lat * Math.PI) / 180));
+      const northSouth = Math.max(...lats) - Math.min(...lats) >= Math.max(...lons) - Math.min(...lons);
+      const sorted = [...group].sort((a, b) => (northSouth ? b.lat - a.lat : a.lon - b.lon));
+      const ends = northSouth ? ["north", "middle", "south"] : ["west", "middle", "east"];
+      sorted.forEach((h, i) => renamed.set(h.id, `${kind}, ${(sorted.length === 2 ? [ends[0], ends[2]] : ends)[i]} end of ${place}`));
+    } else if (from) {
+      for (const h of group) renamed.set(h.id, `${label}, ${bearing(from, h)}`);
+    }
+    // Still the same (same distance, same way): number them.
+    const names = group.map((h) => renamed.get(h.id) ?? label);
+    group.forEach((h, i) => {
+      if (names.filter((n) => n === names[i]).length > 1) renamed.set(h.id, `${names[i]} (${names.slice(0, i + 1).filter((n) => n === names[i]).length})`);
     });
   }
   return hotspots.map((h) => (renamed.has(h.id) ? { ...h, label: renamed.get(h.id)! } : h));
 }
 
+/** Short names for the briefing; two that would sound the same keep what they are: "the pitches in Monbijoupark". */
+export function spokenNames(labels: string[]): string[] {
+  const short = labels.map(shortName);
+  return short.map((name, i) => {
+    if (short.filter((n) => n === name).length < 2) return name;
+    const [kind, ...rest] = labels[i].split(", ");
+    return rest.length ? `the ${kind.toLowerCase()} in ${rest.join(", ")}` : name;
+  });
+}
+
+/** "400 m north" from where the walker stands. */
+export function bearing(from: LatLng, to: LatLng): string {
+  const dy = to.lat - from.lat;
+  const dx = (to.lon - from.lon) * Math.cos((from.lat * Math.PI) / 180);
+  const deg = (Math.atan2(dx, dy) * 180) / Math.PI;
+  const way = ["north", "north-east", "east", "south-east", "south", "south-west", "west", "north-west"][Math.round(((deg + 360) % 360) / 45) % 8];
+  return `${Math.round(haversine(from, to) / 50) * 50} m ${way}`;
+}
+
 /** "Picnic tables, College Park" → "College Park"; "Kennedy Park Playground, Eyre Square" → "Kennedy Park Playground". */
 export const shortName = (label: string) => {
   const [first, ...rest] = label.split(", ");
+  // "Pitch, 400 m north" is said as "the pitch 400 m north".
+  if (/^\d+ m [a-z-]+( \(\d+\))?$/.test(rest.join(", "))) return `the ${first.toLowerCase()} ${rest.join(", ")}`;
   const name = GENERIC.has(first) && rest.length ? rest.join(", ") : first;
   // "west end of Wildflower Meadow" is read aloud: "head to the west end of…".
   return /^(north|south|east|west|middle) end of /.test(name) ? `the ${name}` : name;
@@ -201,7 +228,7 @@ export function finish(p: Prepared, g: GuardedPlan, route: RouteGeometry): PlanR
     title: g.title,
     briefing: composeBriefing({
       startNear: p.startNear,
-      stops: stops.map((h) => shortName(h.label)),
+      stops: spokenNames(stops.map((h) => h.label)),
       returnPoint: rp.name,
       donate: p.request.donate,
       lookFor: g.lookFor,

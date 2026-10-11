@@ -2,15 +2,17 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { DEFAULT_COUNTRY } from "../countries";
 import { haversine } from "../plan/geo";
-import { fetchArea } from "../plan/overpass";
+import { fetchArea, fetchMachines, nameMachines } from "../plan/overpass";
+import { fetchAreaFromTiles } from "../plan/tiles";
 import { fetchWeather } from "../plan/weather";
 import { areaCenter, radiusFor } from "../plan/select";
 import type { AreaData, LatLng, Weather } from "../plan/types";
 import { kvGet, kvSet } from "./kv";
 
-// Map data with two safety nets: a shared cache (one Overpass call per
-// neighbourhood every 12 hours, in Render Key Value when it is configured) and
-// saved snapshots for the demo cities.
+// Map data, in order: the shared cache (Render Key Value when configured),
+// saved snapshots for the demo cities, OpenFreeMap's vector tiles (plus mapped
+// return machines from Overpass), then the full Overpass query. If all of
+// those fail the browser fetches the map itself (src/lib/ai/engine.ts).
 
 const AREA_TTL_SEC = 12 * 60 * 60;
 
@@ -39,6 +41,18 @@ export async function loadArea(start: LatLng, minutes: number): Promise<AreaData
   const snap = loadSnapshots().find((s) => haversine(s.center, start) + radius * 0.6 <= s.radiusM);
   if (snap && process.env.PREFER_LIVE_OSM !== "1") return snap;
 
+  try {
+    // Tiles don't carry return machines. Ask Overpass for just those at the same time, and carry on with supermarkets if it's busy.
+    const [area, machines] = await Promise.all([
+      fetchAreaFromTiles(center, radius + 600),
+      fetchMachines(center, radius + 600).catch(() => []),
+    ]);
+    area.returnPoints = nameMachines([...area.returnPoints, ...machines]);
+    await kvSet(key, area, AREA_TTL_SEC);
+    return area;
+  } catch (tilesError) {
+    console.warn("[area] tiles", String(tilesError));
+  }
   try {
     const area = await fetchArea(center, radius + 600);
     await kvSet(key, area, AREA_TTL_SEC);

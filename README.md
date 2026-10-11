@@ -28,7 +28,8 @@ That split is what lets a 2B model on a phone do the same job as a 26B model in 
 
 ```
 Plan:  where you are + how long + what you asked for
-  → OpenStreetMap (Overpass)   picnic tables, pitches, benches, off-licences, return machines, supermarkets
+  → OpenStreetMap              picnic tables, pitches, playgrounds, off-licences, supermarkets
+                               (OpenFreeMap vector tiles; Overpass for mapped return machines)
   → Open-Meteo                 yesterday's weather (a warm evening leaves cans behind)
   → SerpApi (optional)         what's on in town today: a match or a gig leaves cans behind too
   → score                      hotspot priors × weather × day of week × events × your own past hauls
@@ -43,6 +44,10 @@ Haul:  photo → Gemma (vision) → items → deposit table → refund
 On the server, planning is a [Mastra](https://mastra.ai) workflow ([src/mastra/workflows/planWalk.ts](src/mastra/workflows/planWalk.ts)): `place → map ‖ weather ‖ events → assemble → pick → route`, with the map, weather and events fetched in parallel. The phone tier runs the first half of the same workflow on the server, then Gemma picks in a Web Worker on the phone ([src/lib/ai/edge.worker.ts](src/lib/ai/edge.worker.ts)) and the server guards and routes the result.
 
 There is no live litter feed anywhere, so hotspot estimates start as honest priors. Each walk you log shifts the estimate for the stops you visited, and that history stays on your device.
+
+## Works anywhere with a deposit scheme
+
+Public map servers turn busy cloud servers away, so map data comes from OpenFreeMap's vector tiles, served from a CDN, and is cached in Render Key Value per neighbourhood. If the tiles and Overpass both fail, the browser fetches the map from the walker's own connection and plans again. Weather is always fetched by the browser. Planned walks are checked against the real walking path, so a river with one bridge can't turn 30 minutes into 50.
 
 ## Optional services
 
@@ -68,13 +73,13 @@ pnpm dev                       # http://localhost:3100
 
 ## Data and credits
 
-- Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL), via Overpass.
+- Map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL), read from [OpenFreeMap](https://openfreemap.org)'s vector tiles (the same tiles the map draws), with mapped return machines from Overpass.
 - Map tiles from [OpenFreeMap](https://openfreemap.org).
 - Routing by [Valhalla](https://github.com/valhalla/valhalla) on the FOSSGIS server.
 - Weather from [Open-Meteo](https://open-meteo.com).
 - Events from Google Events via [SerpApi](https://serpapi.com), when a key is set.
 - Deposit rates come from [re-turn.ie](https://re-turn.ie) and TOMRA's 2026 overview.
-- `data/galway.json` is an OpenStreetMap snapshot, so the demo works when Overpass is busy.
+- `data/galway.json` and `data/galway-east.json` are OpenStreetMap snapshots, so Galway plans instantly and the demo never waits on a map server.
 - The demo's sample haul photo (`public/demo/haul.jpg`) was generated with [FLUX.1-dev](https://huggingface.co/black-forest-labs/FLUX.1-dev) on its Hugging Face Space, with deposit-mark stickers added. Swap in a real photo any time.
 
 ## Good manners

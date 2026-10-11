@@ -105,8 +105,14 @@ export function parseElements(elements: OsmElement[], center: LatLng, radiusM: n
     if (fk) features.push({ id, lat, lon, kind: fk, name });
   }
 
-  // Machines are usually tagged with the operator ("Re-turn"), not a place.
-  // Name them after the shop they stand in or beside.
+  return { center, radiusM, features, sources, parks, returnPoints: nameMachines(returnPoints), fetchedAt: new Date().toISOString(), from };
+}
+
+/**
+ * Machines are usually tagged with the operator ("Re-turn"), not a place.
+ * Name them after the shop they stand in or beside.
+ */
+export function nameMachines(returnPoints: ReturnPoint[]): ReturnPoint[] {
   const shops = returnPoints.filter((r) => r.confidence === "shop");
   for (const m of returnPoints) {
     if (m.confidence !== "machine") continue;
@@ -117,15 +123,15 @@ export function parseElements(elements: OsmElement[], center: LatLng, radiusM: n
     if (host) m.name = `${host.s.name} return machine`;
     else if (!/machine/i.test(m.name)) m.name = `${m.name} return machine`;
   }
+  return returnPoints;
 
-  return { center, radiusM, features, sources, parks, returnPoints, fetchedAt: new Date().toISOString(), from };
 }
 
-export async function fetchArea(center: LatLng, radiusM: number, signal?: AbortSignal): Promise<AreaData> {
-  const body = new URLSearchParams({ data: buildQuery(center, radiusM) });
+async function runQuery(query: string, totalMs: number, signal?: AbortSignal): Promise<OsmElement[]> {
+  const body = new URLSearchParams({ data: query });
   // Browsers won't send a custom User-Agent, and asking would turn a simple request into a CORS preflight.
   const headers: Record<string, string> = typeof window === "undefined" ? { "User-Agent": "ReturnRoute/0.1 (+https://github.com/MuhammadMurtuzaHussain/return-route)" } : {};
-  const deadline = Date.now() + TOTAL_MS;
+  const deadline = Date.now() + totalMs;
   const list = typeof window === "undefined" ? MIRRORS : BROWSER_MIRRORS;
   let lastError: unknown = null;
   // A busy server answers 429 or 504 and is often fine seconds later, so go round the list twice.
@@ -140,10 +146,27 @@ export async function fetchArea(center: LatLng, radiusM: number, signal?: AbortS
       if (!text.trimStart().startsWith("{")) throw new Error(`${url} → not JSON`);
       const json = JSON.parse(text) as { elements: OsmElement[]; remark?: string };
       if (json.remark && json.elements.length === 0) throw new Error(`${url} → ${json.remark}`);
-      return parseElements(json.elements, center, radiusM, "overpass");
+      return json.elements;
     } catch (e) {
       lastError = e;
     }
   }
   throw new Error(`Overpass unavailable: ${String(lastError)}`);
+}
+
+export async function fetchArea(center: LatLng, radiusM: number, signal?: AbortSignal): Promise<AreaData> {
+  return parseElements(await runQuery(buildQuery(center, radiusM), TOTAL_MS, signal), center, radiusM, "overpass");
+}
+
+/** Just the mapped deposit return machines: what map tiles don't carry. Small, so quick to give up on. */
+export async function fetchMachines(center: LatLng, radiusM: number): Promise<ReturnPoint[]> {
+  const query = `[out:json][timeout:10][bbox:${bbox(center, radiusM).join(",")}];nwr[amenity=vending_machine][vending=bottle_return];out center tags;`;
+  const elements = await runQuery(query, 6_000);
+  // Named later, next to the shops from the tiles (see nameMachines).
+  return elements.flatMap((e) => {
+    const lat = e.lat ?? e.center?.lat;
+    const lon = e.lon ?? e.center?.lon;
+    const t = e.tags ?? {};
+    return lat == null || lon == null ? [] : [{ id: `${e.type[0]}${e.id}`, lat, lon, name: t.operator ?? t.brand ?? t.name ?? "Return machine", confidence: "machine" as const }];
+  });
 }

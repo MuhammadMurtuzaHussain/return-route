@@ -35,7 +35,7 @@ export type AreaData = {
   parks: Park[];
   returnPoints: ReturnPoint[];
   fetchedAt: string;
-  from: "overpass" | "snapshot";
+  from: "tiles" | "overpass" | "snapshot";
 };
 
 /** A cluster of features close enough to count as one stop. */
