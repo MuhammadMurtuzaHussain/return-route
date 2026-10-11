@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "eval": "tsx --env-file=.env.local eval/run.mts",
+    "eval:plan": "tsx --env-file=.env.local eval/plan.mts",
     "snapshot": "tsx scripts/snapshot.mts"
   },
   "dependencies": {

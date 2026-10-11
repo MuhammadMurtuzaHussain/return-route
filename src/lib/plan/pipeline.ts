@@ -6,7 +6,7 @@ import { googleMapsUrl } from "./export";
 import { haversine } from "./geo";
 import type { RouteGeometry } from "./route";
 import { KIND_LABEL, buildHotspots } from "./score";
-import { candidateReturnPoints, chooseRoute, reachable, stopsFor } from "./select";
+import { askedForReturnPoint, budgetM, candidateReturnPoints, chooseRoute, reachable, stopsFor } from "./select";
 import type { AreaData, Context, Hotspot, LatLng, LocalEvent, ReturnPoint, Weather } from "./types";
 
 // The two deterministic halves of planning a walk, either side of Gemma.
@@ -33,6 +33,8 @@ export type Prepared = {
   hotspots: (Hotspot & { distM: number })[];
   returnPoints: (ReturnPoint & { distM: number })[];
   fallback: { stopIds: string[]; returnPointId: string };
+  /** For each return point on offer, the best stops that still fit the time if the walk ends there. */
+  routes: Record<string, string[]>;
   plannerInput: PlannerInput;
   defaultTitle: string;
   startNear: string | null;
@@ -43,20 +45,31 @@ export function prepare(area: AreaData, req: PlanRequest, scheme: Scheme, weathe
   const all = buildHotspots(area, ctx);
   const near = reachable(req.start, req.minutes, all).slice(0, 12);
   const rps = candidateReturnPoints(req.start, area.returnPoints);
-  const fallback = chooseRoute(req.start, req.minutes, all, area.returnPoints) ?? { stopIds: [], returnPointId: rps[0]?.id ?? "" };
+  // If they named a shop, it is on offer even when it isn't one of the nearest.
+  const asked = req.intent ? askedForReturnPoint(req.intent, req.start, area.returnPoints) : null;
+  if (asked && !rps.some((r) => r.id === asked.id)) rps.push(asked);
+
+  // Where the walk ends decides which stops fit, so work that out per return
+  // point here rather than leave the arithmetic to Gemma.
+  const routes: Record<string, string[]> = {};
+  for (const rp of rps) routes[rp.id] = chooseRoute(req.start, req.minutes, all, [rp])?.stopIds ?? [];
+  const fallback = asked
+    ? { stopIds: routes[asked.id], returnPointId: asked.id }
+    : (chooseRoute(req.start, req.minutes, all, area.returnPoints) ?? { stopIds: [], returnPointId: rps[0]?.id ?? "" });
 
   const dist = (p: LatLng) => Math.round(haversine(req.start, p) / 10) * 10;
-  const hotspots = near.map((h) => ({ ...h, distM: dist(h) }));
-  // The fallback's stops must be on offer to Gemma even if they ranked lower.
-  for (const id of fallback.stopIds) {
-    if (!hotspots.some((h) => h.id === id)) {
+  const offered = near.map((h) => ({ ...h, distM: dist(h) }));
+  // Every stop in a precomputed route must be on offer to Gemma, even if it ranked lower.
+  for (const id of new Set([...fallback.stopIds, ...Object.values(routes).flat()])) {
+    if (!offered.some((h) => h.id === id)) {
       const h = all.find((x) => x.id === id);
-      if (h) hotspots.push({ ...h, distM: dist(h) });
+      if (h) offered.push({ ...h, distM: dist(h) });
     }
   }
+  const hotspots = distinctLabels(offered);
   const returnPoints = rps.map((r) => ({ ...r, distM: dist(r) }));
 
-  const first = hotspots.find((h) => h.id === fallback.stopIds[0]);
+  const first = offered.find((h) => h.id === fallback.stopIds[0]);
   const defaultTitle = first ? `${shortName(first.label)} loop` : `${req.minutes}-minute walk`;
   const startNear = nearestPlace(area, req.start);
 
@@ -69,6 +82,7 @@ export function prepare(area: AreaData, req: PlanRequest, scheme: Scheme, weathe
     hotspots,
     returnPoints,
     fallback,
+    routes,
     defaultTitle,
     startNear,
     plannerInput: {
@@ -81,6 +95,8 @@ export function prepare(area: AreaData, req: PlanRequest, scheme: Scheme, weathe
       hotspots,
       returnPoints,
       suggestion: fallback,
+      routes,
+      budgetKm: Math.round(budgetM(req.minutes, stopsFor(req.minutes)) / 100) / 10,
       scheme,
       donate: req.donate,
     },
@@ -89,10 +105,39 @@ export function prepare(area: AreaData, req: PlanRequest, scheme: Scheme, weathe
 
 const GENERIC = new Set(Object.values(KIND_LABEL).flat());
 
+/**
+ * Two stops called "Pitch, Wildflower Meadow" read like a bug, and the spoken
+ * briefing would send you to the same place twice. Name them by which end of
+ * the place they are at instead.
+ */
+export function distinctLabels<T extends Hotspot>(hotspots: T[]): T[] {
+  const groups = new Map<string, T[]>();
+  for (const h of hotspots) groups.set(h.label, [...(groups.get(h.label) ?? []), h]);
+  const renamed = new Map<string, string>();
+  for (const [label, group] of groups) {
+    if (group.length < 2) continue;
+    const lats = group.map((h) => h.lat);
+    const lons = group.map((h) => h.lon * Math.cos((h.lat * Math.PI) / 180));
+    const northSouth = Math.max(...lats) - Math.min(...lats) >= Math.max(...lons) - Math.min(...lons);
+    const sorted = [...group].sort((a, b) => (northSouth ? b.lat - a.lat : a.lon - b.lon));
+    const ends = northSouth ? ["north", "middle", "south"] : ["west", "middle", "east"];
+    const [kind, ...rest] = label.split(", ");
+    const place = rest.join(", ");
+    sorted.forEach((h, i) => {
+      const end = sorted.length === 2 ? [ends[0], ends[2]][i] : sorted.length === 3 ? ends[i] : null;
+      if (!end) renamed.set(h.id, `${label} (${i + 1})`);
+      else renamed.set(h.id, place ? `${kind}, ${end} end of ${place}` : `${label}, ${end} end`);
+    });
+  }
+  return hotspots.map((h) => (renamed.has(h.id) ? { ...h, label: renamed.get(h.id)! } : h));
+}
+
 /** "Picnic tables, College Park" → "College Park"; "Kennedy Park Playground, Eyre Square" → "Kennedy Park Playground". */
 export const shortName = (label: string) => {
   const [first, ...rest] = label.split(", ");
-  return GENERIC.has(first) && rest.length ? rest.join(", ") : first;
+  const name = GENERIC.has(first) && rest.length ? rest.join(", ") : first;
+  // "west end of Wildflower Meadow" is read aloud: "head to the west end of…".
+  return /^(north|south|east|west|middle) end of /.test(name) ? `the ${name}` : name;
 };
 
 export const DEFAULT_LOOK_FOR = "Check under benches, along hedges and by the pitch edges as you go.";

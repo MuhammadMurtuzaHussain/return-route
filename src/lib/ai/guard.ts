@@ -28,6 +28,8 @@ export function guardPlan(
     hotspots: Hotspot[];
     returnPoints: ReturnPoint[];
     fallback: { stopIds: string[]; returnPointId: string };
+    /** Return point id → stops that fit the time if the walk ends there. */
+    routes?: Record<string, string[]>;
     defaultTitle: string;
   },
 ): GuardedPlan {
@@ -46,7 +48,8 @@ export function guardPlan(
   for (const s of pick.stops) {
     const h = byId.get(s.id.trim());
     if (!h) {
-      flags.push(`invented_stop:${s.id}`);
+      // Small models sometimes list the finish as a stop too. It's real, just in the wrong place.
+      flags.push(rpById.has(s.id.trim()) ? `return_point_as_stop:${s.id}` : `invented_stop:${s.id}`);
       continue;
     }
     if (seen.has(h.id)) continue;
@@ -68,12 +71,16 @@ export function guardPlan(
     stopIds = ctx.fallback.stopIds;
   } else if (rp && !fits(ctx.minutes, ctx.start, stops, rp, 1.35)) {
     // Too long for the time. Keep the walker's finish (they may have asked for
-    // it) and drop stops from the end until it fits; only then give up on it.
+    // it): drop stops from the end until it fits, or take the precomputed
+    // route to that finish if that keeps more stops; only then give up on it.
     flags.push("too_long");
     const kept = [...stops];
     while (kept.length > 1 && !fits(ctx.minutes, ctx.start, kept, rp, 1.35)) kept.pop();
-    if (fits(ctx.minutes, ctx.start, kept, rp, 1.35)) {
+    const known = ctx.routes?.[rp.id] ?? [];
+    if (fits(ctx.minutes, ctx.start, kept, rp, 1.35) && kept.length >= known.length) {
       stopIds = kept.map((s) => s.id);
+    } else if (known.length) {
+      stopIds = known;
     } else {
       stopIds = ctx.fallback.stopIds;
       returnPointId = ctx.fallback.returnPointId;

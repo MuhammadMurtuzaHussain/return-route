@@ -1,0 +1,126 @@
+{
+  "summary": {
+    "label": "before",
+    "model": "gemma-4-26b-a4b-it",
+    "tier": "cloud",
+    "cases": 8,
+    "clean": 7,
+    "flags": {
+      "too_long": 1
+    },
+    "avgSeconds": 5.2
+  },
+  "rows": [
+    {
+      "start": "terryland",
+      "minutes": 45,
+      "intent": "",
+      "flags": [],
+      "title": "Wildflower Meadow walk",
+      "stops": [
+        "Pitch, Wildflower Meadow",
+        "Pitch, Wildflower Meadow",
+        "Bins, Eyre Square"
+      ],
+      "finish": "Aldi return machine",
+      "ms": 5469
+    },
+    {
+      "start": "terryland",
+      "minutes": 45,
+      "intent": "finish at Tesco",
+      "flags": [
+        "too_long"
+      ],
+      "title": "Wildflower Meadow walk",
+      "stops": [
+        "Pitch, Wildflower Meadow",
+        "Pitch, Wildflower Meadow"
+      ],
+      "finish": "Tesco return machine",
+      "ms": 5407
+    },
+    {
+      "start": "terryland",
+      "minutes": 30,
+      "intent": "finish at Lidl",
+      "flags": [],
+      "title": "Pitches loop",
+      "stops": [
+        "Pitches",
+        "Pitch, Wildflower Meadow"
+      ],
+      "finish": "Dunnes Stores return machine",
+      "ms": 4308
+    },
+    {
+      "start": "eyreSquare",
+      "minutes": 60,
+      "intent": "",
+      "flags": [],
+      "title": "Millennium Park ramble",
+      "stops": [
+        "Kennedy Park Playground, Eyre Square",
+        "Nellie McHugh's Garden, Millennium Children's Park",
+        "Picnic tables, College Park"
+      ],
+      "finish": "Aldi return machine",
+      "ms": 5604
+    },
+    {
+      "start": "eyreSquare",
+      "minutes": 30,
+      "intent": "finish at Aldi",
+      "flags": [],
+      "title": "Kennedy Park ramble",
+      "stops": [
+        "Kennedy Park Playground, Eyre Square",
+        "Salmon Weir Bridge, Fisheries Field"
+      ],
+      "finish": "Aldi return machine",
+      "ms": 4707
+    },
+    {
+      "start": "university",
+      "minutes": 60,
+      "intent": "finish at Dunnes",
+      "flags": [],
+      "title": "Millennium Park loop",
+      "stops": [
+        "Picnic tables, College Park",
+        "Nellie McHugh's Garden, Millennium Children's Park",
+        "Kennedy Park Playground, Eyre Square"
+      ],
+      "finish": "Dunnes Stores return machine",
+      "ms": 5233
+    },
+    {
+      "start": "claddagh",
+      "minutes": 45,
+      "intent": "",
+      "flags": [],
+      "title": "Father Burke Park ramble",
+      "stops": [
+        "Viewpoints, Father Burke Park",
+        "Nellie McHugh's Garden, Millennium Children's Park",
+        "Picnic tables, College Park"
+      ],
+      "finish": "Aldi return machine",
+      "ms": 5497
+    },
+    {
+      "start": "claddagh",
+      "minutes": 60,
+      "intent": "finish at Tesco, stay off the main road",
+      "flags": [],
+      "title": "Millennium Children's Park loop",
+      "stops": [
+        "Nellie McHugh's Garden, Millennium Children's Park",
+        "Picnic tables, College Park",
+        "Kennedy Park Playground, Eyre Square"
+      ],
+      "finish": "Tesco",
+      "ms": 5414
+    }
+  ]
+}

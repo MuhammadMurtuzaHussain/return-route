@@ -22,6 +22,7 @@ export async function POST(req: Request) {
     hotspots: p.hotspots,
     returnPoints: p.returnPoints,
     fallback: p.fallback,
+    routes: p.routes,
     defaultTitle: p.defaultTitle,
   });
   // The phone's Gemma never talks to the server, but its picks are guarded here, so its slips are counted too.

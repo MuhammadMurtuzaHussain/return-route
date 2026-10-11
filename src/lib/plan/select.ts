@@ -37,6 +37,24 @@ export function candidateReturnPoints(start: LatLng, points: ReturnPoint[], max 
   return [...machines, ...shops];
 }
 
+const NOT_A_BRAND = new Set(["return", "machine", "stores", "store", "shop", "supermarket", "foodhall", "market", "express", "extra", "local"]);
+
+/**
+ * The return point the walker asked to finish at ("finish at Tesco"), if any:
+ * the nearest one whose name shares a word with what they typed, a machine if
+ * there is one. Found in code so a small model can't miss it.
+ */
+export function askedForReturnPoint(intent: string, start: LatLng, points: ReturnPoint[]): ReturnPoint | null {
+  const said = new Set(intent.toLowerCase().match(/[a-z\u00c0-\u024f&']{3,}/g) ?? []);
+  if (!said.size) return null;
+  const matches = points.filter((p) => (p.name.toLowerCase().match(/[a-z\u00c0-\u024f&']{3,}/g) ?? []).some((w) => !NOT_A_BRAND.has(w) && said.has(w)));
+  if (!matches.length) return null;
+  const byDist = matches.sort((a, b) => haversine(start, a) - haversine(start, b));
+  const nearest = byDist[0];
+  // A mapped machine is worth a short extra walk over a shop that only probably has one.
+  return byDist.find((p) => p.confidence === "machine" && haversine(start, p) <= haversine(start, nearest) + 300) ?? nearest;
+}
+
 /** Hotspots you could walk to and back from in the time, best first. */
 export function reachable(start: LatLng, minutes: number, hotspots: Hotspot[]): Hotspot[] {
   const reach = budgetM(minutes, 1) / 2;

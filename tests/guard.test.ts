@@ -22,6 +22,15 @@ describe("plan guard", () => {
     expect(g.flags).toContain("invented_stop:g999_999");
   });
 
+  it("says so when Gemma lists the return point as a stop, rather than calling it invented", () => {
+    const g = guardPlan(
+      { title: "Walk", stops: [{ id: fallback.returnPointId, why: "" }, { id: fallback.stopIds[0], why: "" }], returnPointId: fallback.returnPointId, lookFor: "", tip: "" },
+      ctx,
+    );
+    expect(g.stopIds).toEqual([fallback.stopIds[0]]);
+    expect(g.flags).toEqual([`return_point_as_stop:${fallback.returnPointId}`]);
+  });
+
   it("replaces an invented return point", () => {
     const g = guardPlan({ title: "Walk", stops: [{ id: fallback.stopIds[0], why: "" }], returnPointId: "n123", lookFor: "", tip: "" }, ctx);
     expect(g.returnPointId).toBe(fallback.returnPointId);

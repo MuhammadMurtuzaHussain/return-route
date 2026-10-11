@@ -18,6 +18,7 @@ import type { Tier } from "../ai/schema";
 const LABEL: Record<string, string> = {
   invented_stop: "Gemma picked a stop that wasn't on the map",
   invented_return_point: "Gemma picked a return point that wasn't on the map",
+  return_point_as_stop: "Gemma listed the return point as a stop too",
   too_long: "Gemma's route didn't fit the time, so stops were dropped",
   no_valid_stops: "None of Gemma's stops were real, so the default route was used",
   no_model_output: "No usable plan from Gemma, so the default route was used",

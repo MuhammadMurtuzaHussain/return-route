@@ -114,6 +114,7 @@ const pickStep = createStep({
         hotspots: p.hotspots,
         returnPoints: p.returnPoints,
         fallback: p.fallback,
+        routes: p.routes,
         defaultTitle: p.defaultTitle,
       });
       if (failed) guarded.flags.push("model_error");

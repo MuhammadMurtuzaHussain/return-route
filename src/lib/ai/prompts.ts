@@ -11,6 +11,7 @@ You are given numbered candidate stops and return points. Choose from them only,
 Rules:
 - Pick up to the requested number of stops, in walking order, and one return point to finish at.
 - Respect anything the walker asks for (time, where to finish, places to avoid). If they name a shop, finish at the return point with that name if there is one.
+- The walk must fit their time. Each return point lists stops that fit if the walk finishes there: when you finish at a return point, use its stops (you may reorder or swap one for a stop that is closer).
 - "why" is one short sentence saying what is at that stop and why it should have cans today, using the facts listed for it. Good: "Five picnic tables two minutes from an off-licence; people sit out here on a Friday." Bad: "The weather is nice." No hype, no emojis.
 - "lookFor" is one sentence, read aloud as they set off: where on this walk the containers will be (under benches, along hedges, by the pitch dugouts...). Never send them into bins. Calm and friendly.
 - "tip" is one short safety or etiquette tip for today (gloves, broken glass, wet grass, leave bins alone...).
@@ -30,6 +31,10 @@ export type PlannerInput = {
   hotspots: (Hotspot & { distM: number })[];
   returnPoints: (ReturnPoint & { distM: number })[];
   suggestion: { stopIds: string[]; returnPointId: string };
+  /** Return point id → stops that fit the time if the walk ends there. */
+  routes: Record<string, string[]>;
+  /** Most the whole walk can be, start to finish, in km. */
+  budgetKm: number;
   scheme: Scheme;
   donate: boolean;
 };
@@ -39,9 +44,12 @@ export function plannerPrompt(p: PlannerInput): string {
     .map((h) => `- id=${h.id} | ${h.label} | ~${h.expected} containers | ${h.distM} m away | ${h.reasons.join("; ")}`)
     .join("\n");
   const rps = p.returnPoints
-    .map((r) => `- id=${r.id} | ${r.name} | ${r.confidence === "machine" ? "mapped return machine" : "supermarket, very likely takes returns"} | ${r.distM} m away`)
+    .map((r) => {
+      const fit = p.routes[r.id]?.length ? `fits with stops [${p.routes[r.id].join(", ")}]` : "only a direct walk fits";
+      return `- id=${r.id} | ${r.name} | ${r.confidence === "machine" ? "mapped return machine" : "supermarket, very likely takes returns"} | ${r.distM} m away | ${fit}`;
+    })
     .join("\n");
-  return `Walker is standing ${p.startNear ? `near ${p.startNear}` : "at the start"} and has ${p.minutes} minutes. Wants ${p.stopsWanted} stop${p.stopsWanted === 1 ? "" : "s"}.
+  return `Walker is standing ${p.startNear ? `near ${p.startNear}` : "at the start"} and has ${p.minutes} minutes: at most ${p.budgetKm} km in all, start to stops to return point. Wants ${p.stopsWanted} stop${p.stopsWanted === 1 ? "" : "s"}.
 Walker says: ${p.intent.trim() ? `"${p.intent.trim().slice(0, 300)}"` : "(nothing)"}
 Today: ${p.weekdayName}. Weather: ${p.weather?.summary ?? "unknown"}.
 Country: ${p.scheme.country} (${p.scheme.scheme}).${p.donate ? " The walker is donating today's refund to charity." : ""}
