@@ -22,7 +22,7 @@ const NOTE: Record<ReceiptLine["status"], string> = {
   not_in_scheme: "not in the scheme",
 };
 
-type Source = "gemma" | "hand" | "recorded";
+type Source = "gemma" | "hand" | "known";
 
 export function HaulScreen({
   country,
@@ -32,7 +32,7 @@ export function HaulScreen({
   onLog,
   sample,
   auto,
-  recorded,
+  known,
   onRead,
   giveSignal = 0,
 }: {
@@ -46,8 +46,8 @@ export function HaulScreen({
   sample: () => Promise<Blob>;
   /** The guided demo: read this sample straight away. */
   auto?: boolean;
-  /** The guided demo: a recorded reading to show if Gemma can't be reached. */
-  recorded?: HaulReading;
+  /** The guided demo: the sample's reading, already checked against a real voucher, and where it came from. */
+  known?: { reading: HaulReading; source: string };
   onRead?: () => void;
   /** The guided demo: bump this to give the refund away. */
   giveSignal?: number;
@@ -67,42 +67,40 @@ export function HaulScreen({
   useEffect(() => () => (photo ? URL.revokeObjectURL(photo) : undefined), [photo]);
 
   const read = useCallback(
-    async (file: Blob) => {
+    async (file: Blob, checked?: HaulReading) => {
       setPhoto(URL.createObjectURL(file));
       setResult(null);
       setAdjust(0);
       setError(null);
+      // The demo's real haul was checked against the machine's voucher, so it is shown as checked.
+      if (checked) {
+        setResult({ reading: checked, totals: haulTotals(checked.items, scheme), tier: "cloud", model: "", gemmaMs: 0 });
+        setSource("known");
+        onRead?.();
+        return;
+      }
       setBusy(true);
       try {
-        let r = await check(file);
-        // In the demo, a reading with nothing to pay gets one more go, then the recording.
-        if (recorded && r.totals.eligible === 0) r = await check(file);
-        if (recorded && r.totals.eligible === 0) throw new Error("Gemma missed the containers");
-        setResult(r);
+        setResult(await check(file));
         setSource("gemma");
       } catch (e) {
-        if (recorded) {
-          setResult({ reading: recorded, totals: haulTotals(recorded.items, scheme), tier: "local", model: "gemma4:e4b", gemmaMs: 0 });
-          setSource("recorded");
-        } else {
-          setError(e instanceof Error ? e.message : "Gemma couldn't read that photo.");
-        }
+        setError(e instanceof Error ? e.message : "Gemma couldn't read that photo.");
       } finally {
         setBusy(false);
         onRead?.();
       }
     },
-    [check, recorded, scheme, onRead],
+    [check, scheme, onRead],
   );
 
   const trySample = useCallback(async () => {
     setError(null);
     try {
-      await read(await sample());
+      await read(await sample(), known?.reading);
     } catch {
       setError("Couldn't load the sample photo.");
     }
-  }, [read, sample]);
+  }, [read, sample, known]);
 
   const started = useRef(false);
   useEffect(() => {
@@ -272,7 +270,7 @@ export function HaulScreen({
           {notes && lines.length > 0 && <p className="mt-5 normal-case leading-relaxed text-muted">{notes}</p>}
           {source !== "hand" && (
             <p className="mt-5 text-center text-[11px] uppercase text-muted">
-              {source === "recorded" ? `Recorded reading by ${result.model}: the live read didn't come through` : `Read by ${result.model} ${TIER_WORDS[result.tier]}`}
+              {source === "known" ? known?.source : `Read by ${result.model} ${TIER_WORDS[result.tier]}`}
               {source === "gemma" && result.gemmaMs ? `, ${(result.gemmaMs / 1000).toFixed(1)}s` : ""}
             </p>
           )}

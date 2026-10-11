@@ -5,7 +5,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { Check, Copy, HandHeart, ImageSquare, Sparkle, XLogo } from "@phosphor-icons/react";
 import { formatMoney } from "@/lib/countries";
 import type { PostFacts } from "@/lib/ai/prompts";
-import { composePost, recycledKg, shareOrSave, tweetUrl, voucherImage } from "@/lib/client/share";
+import { composePost, recycledWeight, shareOrSave, tweetUrl, voucherImage } from "@/lib/client/share";
 import type { Goal, Totals } from "@/lib/client/store";
 import type { LoggedHaul } from "./HaulScreen";
 import { Button } from "./ui";
@@ -113,7 +113,7 @@ export function Logged({
     setTimeout(() => setSaved(null), 1800);
   };
 
-  const kg = recycledKg(haul.containers);
+  const weight = recycledWeight(haul.containers);
   const toGo = rate > 0 ? Math.max(0, Math.ceil((goal.amount - totals.earned) / rate)) : 0;
   const rise = (i: number) =>
     reduce ? {} : { initial: { opacity: 0, y: 14 }, animate: { opacity: 1, y: 0 }, transition: { delay: 0.1 + 0.08 * i, duration: 0.5, ease: [0.16, 1, 0.3, 1] as const } };
@@ -142,7 +142,7 @@ export function Logged({
       <motion.dl {...rise(1)} className="grid grid-cols-3 gap-2">
         {[
           [String(haul.containers), "picked up"],
-          [kg ? `≈${kg} kg` : "0 kg", "recycled"],
+          [weight, "recycled"],
           haul.donated ? [money(totals.donated), "given so far"] : [money(totals.earned), "saved so far"],
         ].map(([v, k]) => (
           <div key={k} className="flex flex-col-reverse gap-1 rounded-xl bg-surface p-3">

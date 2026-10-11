@@ -2,7 +2,7 @@
 
 import { HandHeart } from "@phosphor-icons/react";
 import { formatMoney } from "@/lib/countries";
-import { recycledKg } from "@/lib/client/share";
+import { recycledWeight } from "@/lib/client/share";
 import type { Goal, Totals } from "@/lib/client/store";
 
 const CELLS = 24;
@@ -47,7 +47,7 @@ export function VoucherStub({ totals, goal, flash, cause, rate }: { totals: Tota
 }
 
 function GivingStub({ totals, cause, flash }: { totals: Totals; cause: string; flash?: boolean }) {
-  const kg = recycledKg(totals.containers);
+  const weight = recycledWeight(totals.containers);
   const line =
     totals.walks === 0
       ? "Your first walk starts the count. Every can is one less in the grass."
@@ -68,7 +68,7 @@ function GivingStub({ totals, cause, flash }: { totals: Totals; cause: string; f
       <dl className="mt-4 grid grid-cols-3 gap-2 border-y border-dashed border-line py-3 text-center">
         {[
           [String(totals.containers), "picked up"],
-          [kg ? `≈${kg} kg` : "0 kg", "recycled"],
+          [weight, "recycled"],
           [String(totals.walks), totals.walks === 1 ? "walk" : "walks"],
         ].map(([v, k]) => (
           <div key={k} className="flex flex-col-reverse gap-1">

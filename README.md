@@ -67,7 +67,7 @@ pnpm dev                       # http://localhost:3100
 ```
 
 - **Phone tier:** open the app in Chrome (Android or desktop), go to Settings and choose **On this phone**. The first time, it downloads about 3.4 GB of weights, so use wifi.
-- **Guided demo:** open [`/?demo`](http://localhost:3100/?demo), or tap **Watch the demo** on the home screen. It plans a real walk from Terryland Forest Park with Gemma, plays the walk on the map, reads a sample haul photo, gives the refund away and drafts the post. If Gemma can't be reached it shows a recorded plan and reading, and says so. Your real totals are never touched.
+- **Guided demo:** open [`/?demo`](http://localhost:3100/?demo), or tap **Watch the demo** on the home screen. It plans a real walk from Terryland Forest Park with Gemma, plays the walk on the map, shows the real haul from our test walk in Galway, gives the refund away and drafts the post. The haul's voucher is checked against what the Re-turn machine at Lidl actually paid for that bag: two cans at 15c, €0.30. If Gemma can't be reached it shows a recorded plan, and says so. Your real totals are never touched.
 - **Tests:** `pnpm test`
 - **Haul-reading eval per tier:** add photos and true counts to `eval/hauls/`, then run `pnpm eval`.
 
@@ -80,7 +80,7 @@ pnpm dev                       # http://localhost:3100
 - Events from Google Events via [SerpApi](https://serpapi.com), when a key is set.
 - Deposit rates come from [re-turn.ie](https://re-turn.ie) and TOMRA's 2026 overview.
 - `data/galway.json` and `data/galway-east.json` are OpenStreetMap snapshots, so Galway plans instantly and the demo never waits on a map server.
-- The demo's sample haul photo (`public/demo/haul.jpg`) was generated with [FLUX.1-dev](https://huggingface.co/black-forest-labs/FLUX.1-dev) on its Hugging Face Space, with deposit-mark stickers added. Swap in a real photo any time.
+- The demo's haul photo (`public/demo/real-haul.jpg`) is the real bag from our test walk in Galway on 11 October 2026. The "Try a sample photo" button uses `public/demo/haul.jpg`, generated with [FLUX.1-dev](https://huggingface.co/black-forest-labs/FLUX.1-dev) on its Hugging Face Space, with deposit-mark stickers added so Gemma has marks it can read.
 
 ## Good manners
 

@@ -10,6 +10,13 @@ const GRAMS_PER_CONTAINER = 16;
 
 export const recycledKg = (containers: number) => Math.round((containers * GRAMS_PER_CONTAINER) / 100) / 10;
 
+/** The recycled weight for display: grams for a small haul, so two cans aren't "0 kg". */
+export function recycledWeight(containers: number): string {
+  const grams = containers * GRAMS_PER_CONTAINER;
+  if (grams <= 0) return "0 kg";
+  return grams < 1000 ? `≈${grams} g` : `≈${recycledKg(containers)} kg`;
+}
+
 export type PostInput = { line: string; containers: number; amount: number; currency: string; donated: boolean; cause: string | null; place: string | null };
 
 /** The post text. Gemma may supply the opening line; every number comes from the app. */

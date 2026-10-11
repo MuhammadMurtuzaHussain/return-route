@@ -18,7 +18,7 @@ import type { PostFacts } from "@/lib/ai/prompts";
 import { DEFAULT_COUNTRY, getScheme } from "@/lib/countries";
 import { useDark } from "@/lib/client/theme";
 import { DEFAULT_GOAL, DEFAULT_SETTINGS, DEFAULT_TOTALS, learn, useStored, type Mode, type Totals } from "@/lib/client/store";
-import { DEMO_CAUSE, DEMO_INTENT, DEMO_MINUTES, DEMO_START, DEMO_STEPS, RECORDED_READING, samplePhoto } from "@/lib/demo";
+import { DEMO_CAUSE, DEMO_INTENT, DEMO_MINUTES, DEMO_START, DEMO_STEPS, REAL_HAUL, realHaulPhoto, samplePhoto } from "@/lib/demo";
 import recordedPlan from "@/lib/demo/plan.json";
 import type { Tier } from "@/lib/ai/schema";
 import { DemoBar } from "./DemoBar";
@@ -378,9 +378,9 @@ export function App() {
                 cause={mode === "cause" ? cause : null}
                 check={checkHaul}
                 onLog={logHaul}
-                sample={samplePhoto}
+                sample={inDemo ? realHaulPhoto : samplePhoto}
                 auto={inDemo}
-                recorded={inDemo ? RECORDED_READING : undefined}
+                known={inDemo ? REAL_HAUL : undefined}
                 onRead={inDemo ? () => setStep("voucher", { read: true }) : undefined}
                 giveSignal={demo?.give ?? 0}
               />
