@@ -37,6 +37,8 @@ pnpm eval:plan    # planner eval: 8 Galway walks, results in eval/results/
 pnpm snapshot     # refresh data/galway*.json from OpenStreetMap
 ```
 
+Preview configs live in the parent folder's `.claude/launch.json`: `return-route` (dev, 3100), `return-route-prod` (`next start`, 3101) and `return-route-blocked` (prod with Overpass pointed at an invalid host, to test the map fallbacks).
+
 Laptop tier needs `ollama pull gemma4:e4b`. Cloud tier needs `MODEL_PROVIDER=google` and `GOOGLE_GENERATIVE_AI_API_KEY`. See `.env.example`.
 
 ## Gemma, three tiers
@@ -57,6 +59,9 @@ This split lets a 2B model on a phone do the job, and it's the story of the DEV 
 - **Money is never the model's job.** Gemma reports material, size, deposit mark and crushed or not. Payout comes from `src/lib/countries.ts` (Ireland plus 18 other European schemes; UK not included, its scheme starts Oct 2027). `stripMoney` removes any cash promise.
 - **Place names in the spoken briefing come from code** (`composeBriefing` in `src/lib/plan/pipeline.ts`). Gemma only adds what to look for and one safety tip.
 - **Titles must name a real place on the route** (`namesAPlace`), otherwise the code falls back to "<place> loop".
+- **Gemma never sends people into bins.** `leaveBins` drops any sentence about bins or the Pfandring unless it says to leave them alone. `walkTitle` rejects generic titles ("Park Waste Collection") and turns "run" into "loop".
+- **Posts: Gemma writes one line, code adds the facts.** `/api/post` (or the phone worker) returns a line that `guardPostLine` strips of numbers, money and hashtags. `composePost` in `src/lib/client/share.ts` adds the count, the amount and the cause from the voucher.
+- **Haul notes lose the narration.** `cleanNotes` drops "Based on the image, I have identified 7 containers" before the voucher shows them.
 - The haul voucher is itemised by `receiptLines` in `guard.ts`.
 - Every guard override is a Sentry issue tagged with tier and model.
 
@@ -100,6 +105,16 @@ Built on an Irish waymarked trail post (black post, yellow arrow) and a return m
 - Phosphor icons. Light, dark or system appearance, set in Settings and applied before paint. Respect `prefers-reduced-motion`.
 - Avoid generic AI UI: no pill buttons, iOS toggles, gradient cards or progress-bar clichés.
 
+## Gotchas (learned the hard way)
+
+- **MapLibre markers:** never set `position` on a custom marker element. It overrides MapLibre's absolute positioning, and the markers stack down the page (stops 2, 3 and € were drawn 30, 60 and 90px off the route). `RouteMap` also refits when its box resizes.
+- **Sideways jump:** `html { scrollbar-gutter: stable }` stops the page shifting when a screen or mode is long enough to need a scrollbar.
+- **Before paint:** the inline script in `layout.tsx` sets `data-theme` (the raw `return-route.theme` string, not JSON) and `data-mode="cause"` from saved settings or `?demo`, so there's no flash. `App` keeps `<meta name="theme-color">` in step.
+- **Dialogs** use `src/lib/client/useDialog.ts`: Escape closes, Tab stays inside and focus returns afterwards.
+- **The demo keeps its own state** (`Demo` in `App.tsx`) and never writes totals, history or the last plan to localStorage. A stale `planSeq` result is ignored, which is how Cancel and Exit demo work.
+- **Gemma 4 E4B on haul photos:** it overcounts busy layouts by about one, and it can't confirm the deposit mark unless the logo is clearly visible, so mark calls swing between runs. That's why the sample photo has stickers and the demo uses the checked real-haul reading.
+- **Generating images:** the Hugging Face account has no Inference Providers credit (402), but the FLUX.1-dev Space works on the free ZeroGPU quota (300 s a day) through its Gradio API with `hf auth token`. Canva's generate-image only exposes signed thumbnails; a full-size export means saving it into a design.
+
 ## Screens (`src/components`)
 
 `App.tsx` shell → `Welcome` (first visit) → `GoScreen` (fingerpost blades for 30 min / 1 hour / 90 min, customise time and direction, `VoucherStub`) → `Planning` (cancellable) → `RouteView` (map, estimate range, stops, briefing quote, sticky Start walking / speak / GPX) → `HaulScreen` (camera, gallery, sample photo or hand count → itemised voucher → Keep / Donate) → `Logged` (thank-you, impact, a post Gemma drafts, shareable voucher image). Also `SettingsSheet`, `DemoBar` and `Footer` (credits plus the challenge link).
@@ -109,7 +124,8 @@ Built on an Irish waymarked trail post (black post, yellow arrow) and a return m
 ## Progress log
 
 - **9 Oct:** MVP built across all three tiers, plus Render blueprint, deposit table and Galway snapshot. Disk on the Mac cleared to about 2 GB.
-- **10 Oct:** pushed to GitHub. UI redesigned from the generic look to waymark and voucher. Footer credits added. Guided demo, cause mode, welcome screen, walk-logged screen and the appearance setting added.
+- **9–10 Oct:** pushed to GitHub. UI redesigned from the generic look to waymark and voucher. Footer credits added.
+- **11 Oct, morning (`d86cfab`, `4fec91d`):** first-user feedback session. Added the welcome popup with the 9GAG story, the guided demo (`/?demo`, 8 captioned steps in `src/lib/demo/index.ts`, map walk-through, recorded plan fallback), Walk for a cause (green theme, giving voucher, Give as the main action), the walk-logged screen (Gemma-drafted post, voucher image via `share.ts`), Customise this walk (20 to 180 min plus direction) and the appearance setting. The audit fixes were marker drift, lowercased titles, nav wrap on phones, bin advice and generic titles, Escape and focus in dialogs, planning Cancel, labelled Briefing and GPX buttons, the sideways jump, the theme flash and the browser bar colour. The Terryland and Donate chips were removed at the author's request; the demo and cause mode cover them. The FLUX sample photo was generated for "Try a sample photo".
 - **10–11 Oct:** Sentry agent tracing, SerpApi events, Key Value cache, parallel workflow. Planner eval (before → after): cloud untouched by the guard 7/8 → 8/8, local 6/8 → 7/8; both reached 0 too-long walks and 5/5 finishes where asked. Map data moved to OpenFreeMap tiles, so plans work anywhere in Europe.
 - **11 Oct:** test walk in Galway. The real haul was checked at the Lidl machine (€0.30) and is now in the demo. Render deploy live, `/api/status` returns 200.
 
@@ -129,4 +145,6 @@ Built on an Irish waymarked trail post (black post, yellow arrow) and a return m
   - the Mastra workflow;
   - the `pnpm eval:plan` before and after table.
 - [ ] Write the DEV post (tag `#hf26challenge`, AI disclosure). Lead with the "Gemma judges, code guarantees" split, the eval numbers and the real €0.30 voucher. Footage is in `../Video for return-route/`.
+- [ ] The 9GAG copy doesn't follow the "unverified" rule above yet: `Welcome.tsx` ("Someone in Germany posted on 9GAG…"), `Voucher.tsx` and `Logged.tsx` ("The 9GAG walker did 2,000").
+- [ ] Housekeeping: delete the merged `demo-and-cause-mode` branch on GitHub, and the scratch Canva design "Photo Collage - Sustainability" left from the image experiments.
 - [ ] Decide on the untracked Sentry wizard scaffolding (`src/app/sentry-example-page/`, `src/app/api/sentry-example-api/`, `.mcp.json`). Probably delete or gitignore it rather than ship it.
