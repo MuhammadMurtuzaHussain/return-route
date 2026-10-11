@@ -33,7 +33,8 @@ function loadSnapshots(): AreaData[] {
 export async function loadArea(start: LatLng, minutes: number): Promise<AreaData> {
   const radius = radiusFor(minutes);
   const center = areaCenter(start);
-  const key = `area:${center.lat},${center.lon},${radius}`;
+  // v2: areas from before school grounds were left out (3a2118d) shouldn't come back from the cache.
+  const key = `area:v2:${center.lat},${center.lon},${radius}`;
   const hit = await kvGet<AreaData>(key);
   if (hit) return hit;
 
