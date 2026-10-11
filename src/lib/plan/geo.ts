@@ -20,6 +20,17 @@ export const WALK_M_PER_MIN = 75;
 /** Minutes spent at each stop picking things up. */
 export const DWELL_MIN = 5;
 
+/** Is the point inside the outline? Ray casting, which is fine at street scale. */
+export function inRing(p: LatLng, ring: LatLng[]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const a = ring[i];
+    const b = ring[j];
+    if (a.lat > p.lat !== b.lat > p.lat && p.lon < ((b.lon - a.lon) * (p.lat - a.lat)) / (b.lat - a.lat) + a.lon) inside = !inside;
+  }
+  return inside;
+}
+
 export function pathLength(points: LatLng[]): number {
   let d = 0;
   for (let i = 1; i < points.length; i++) d += haversine(points[i - 1], points[i]);

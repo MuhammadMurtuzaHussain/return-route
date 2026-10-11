@@ -1,5 +1,6 @@
 import { VectorTile } from "@mapbox/vector-tile";
 import Pbf from "pbf";
+import { inRing } from "./geo";
 import { bbox } from "./overpass";
 import type { AreaData, Feature, FeatureKind, LatLng, Park, ReturnPoint, Source, SourceKind } from "./types";
 
@@ -61,6 +62,25 @@ export function tileSourceKind({ class: c, subclass: s }: Props): SourceKind | n
   return null;
 }
 
+/**
+ * School and childcare grounds in one tile, as outlines. Pitches and picnic
+ * tables inside them aren't stops: the gates are locked (see closedGrounds in
+ * overpass.ts). Tiles don't carry access tags, so this is the whole check here.
+ */
+function schoolGrounds(t: VectorTile, x: number, y: number): LatLng[][] {
+  const layer = t.layers.landuse;
+  const rings: LatLng[][] = [];
+  if (!layer) return rings;
+  for (let k = 0; k < layer.length; k++) {
+    const f = layer.feature(k);
+    if (f.properties.class !== "school" && f.properties.class !== "kindergarten") continue;
+    const g = f.toGeoJSON(x, y, Z).geometry;
+    const polygons = g.type === "Polygon" ? [g.coordinates] : g.type === "MultiPolygon" ? g.coordinates : [];
+    for (const [outer] of polygons) rings.push(outer.map(([lon, lat]) => ({ lat, lon })));
+  }
+  return rings;
+}
+
 async function tile(url: string): Promise<VectorTile | null> {
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
@@ -94,11 +114,11 @@ export async function fetchAreaFromTiles(center: LatLng, radiusM: number): Promi
   const sources: Source[] = [];
   const parks: Park[] = [];
   const returnPoints: ReturnPoint[] = [];
-  const seen = new Set<string>();
   tiles.forEach((t, i) => {
     const poi = t?.layers.poi;
-    if (!poi) return;
+    if (!t || !poi) return;
     const [x, y] = coords[i];
+    const closed = schoolGrounds(t, x, y);
     for (let k = 0; k < poi.length; k++) {
       const f = poi.feature(k);
       const p = f.properties as Props;
@@ -106,10 +126,10 @@ export async function fetchAreaFromTiles(center: LatLng, radiusM: number): Promi
       if (g.type !== "Point") continue;
       const [lon, lat] = g.coordinates;
       if (lat < s || lat > n || lon < w || lon > e) continue;
-      // Tiles overlap a little at the edges; count each place once.
+      // Tiles overlap a little at the edges. Read each place from the tile it's in: that
+      // counts it once, and that tile has the whole school outline around it, not a sliver.
+      if (lonToX(lon) !== x || latToY(lat) !== y) continue;
       const id = `t${f.id ?? `${lat.toFixed(6)},${lon.toFixed(6)}`}`;
-      if (seen.has(id)) continue;
-      seen.add(id);
       const name = typeof p.name === "string" && p.name ? p.name : undefined;
 
       if (p.subclass === "supermarket") {
@@ -121,7 +141,7 @@ export async function fetchAreaFromTiles(center: LatLng, radiusM: number): Promi
         if (sk) sources.push({ id, lat, lon, kind: sk, name });
         else {
           const fk = tileFeatureKind(p);
-          if (fk) features.push({ id, lat, lon, kind: fk, name });
+          if (fk && !closed.some((r) => inRing({ lat, lon }, r))) features.push({ id, lat, lon, kind: fk, name });
         }
       }
     }

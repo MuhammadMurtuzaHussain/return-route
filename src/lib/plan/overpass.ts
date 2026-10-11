@@ -1,3 +1,4 @@
+import { inRing } from "./geo";
 import type { AreaData, Feature, FeatureKind, LatLng, Park, ReturnPoint, Source, SourceKind } from "./types";
 
 // Everything Return Route knows about a place comes from OpenStreetMap through
@@ -35,7 +36,12 @@ export function buildQuery(center: LatLng, radiusM: number): string {
   nwr[leisure=park][name]; nwr[leisure=nature_reserve][name];
   node[amenity=vending_machine][vending=bottle_return]; nwr[shop=supermarket];
 );
-out center tags;`;
+out center tags;
+(
+  nwr[amenity~"^(school|kindergarten|childcare)$"];
+  nwr[amenity~"^(college|university)$"][access~"^(private|no|customers)$"];
+);
+out geom;`;
 }
 
 type OsmElement = {
@@ -44,8 +50,42 @@ type OsmElement = {
   lat?: number;
   lon?: number;
   center?: { lat: number; lon: number };
+  /** A way's outline, from `out geom`. Points outside the query's box come back as null. */
+  geometry?: (LatLng | null)[];
+  bounds?: { minlat: number; minlon: number; maxlat: number; maxlon: number };
   tags?: Record<string, string>;
 };
+
+/** Marked off-limits: no place to send a stranger with a bin bag. */
+const NO_ENTRY = /^(private|no|customers)$/;
+const OPEN = /^(yes|permissive|public)$/;
+
+/**
+ * Grounds the public can't walk into: schools and childcare, and any college
+ * campus marked private. Our test walk ended at a school gate that a pitch
+ * inside had led us to; a university campus is usually open, so it stays.
+ */
+export function closedGrounds(elements: OsmElement[]): LatLng[][] {
+  const rings: LatLng[][] = [];
+  for (const e of elements) {
+    const t = e.tags ?? {};
+    const closed = /^(school|kindergarten|childcare)$/.test(t.amenity ?? "") || (/^(college|university)$/.test(t.amenity ?? "") && NO_ENTRY.test(t.access ?? ""));
+    if (!closed) continue;
+    const ring = (e.geometry ?? []).filter((p): p is LatLng => p != null);
+    if (ring.length >= 3) rings.push(ring);
+    else if (e.bounds) {
+      // A multipolygon's parts come as separate members; its box is close enough for school grounds.
+      const b = e.bounds;
+      rings.push([
+        { lat: b.minlat, lon: b.minlon },
+        { lat: b.minlat, lon: b.maxlon },
+        { lat: b.maxlat, lon: b.maxlon },
+        { lat: b.maxlat, lon: b.minlon },
+      ]);
+    }
+  }
+  return rings;
+}
 
 function featureKind(t: Record<string, string>): FeatureKind | null {
   if (t.leisure === "picnic_table" || t.tourism === "picnic_site") return "picnic";
@@ -75,6 +115,7 @@ export function parseElements(elements: OsmElement[], center: LatLng, radiusM: n
   const sources: Source[] = [];
   const parks: Park[] = [];
   const returnPoints: ReturnPoint[] = [];
+  const closed = closedGrounds(elements);
 
   for (const e of elements) {
     const t = e.tags ?? {};
@@ -102,7 +143,9 @@ export function parseElements(elements: OsmElement[], center: LatLng, radiusM: n
       continue;
     }
     const fk = featureKind(t);
-    if (fk) features.push({ id, lat, lon, kind: fk, name });
+    // A school pitch the map marks as open to the community is fair game.
+    const shut = NO_ENTRY.test(t.access ?? "") || (!OPEN.test(t.access ?? "") && closed.some((r) => inRing({ lat, lon }, r)));
+    if (fk && !shut) features.push({ id, lat, lon, kind: fk, name });
   }
 
   return { center, radiusM, features, sources, parks, returnPoints: nameMachines(returnPoints), fetchedAt: new Date().toISOString(), from };

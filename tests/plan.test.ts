@@ -4,7 +4,7 @@ import { buildHotspots, cellId } from "@/lib/plan/score";
 import { chooseRoute, fits, walkM } from "@/lib/plan/select";
 import { estimate } from "@/lib/plan/estimate";
 import { googleMapsUrl, toGpx } from "@/lib/plan/export";
-import { decodePolyline, haversine } from "@/lib/plan/geo";
+import { decodePolyline, haversine, inRing } from "@/lib/plan/geo";
 import { parseElements } from "@/lib/plan/overpass";
 import { composeBriefing, shortName } from "@/lib/plan/pipeline";
 import { SCHEMES, depositFor, typicalDeposit } from "@/lib/countries";
@@ -146,6 +146,46 @@ describe("overpass parsing", () => {
     expect(a.sources[0].kind).toBe("offlicence");
     expect(a.parks[0].name).toBe("Terryland Forest Park");
     expect(a.returnPoints.find((r) => r.confidence === "machine")!.name).toBe("Aldi return machine");
+  });
+
+  it("leaves out stops behind a school gate or marked private", () => {
+    const yard = [
+      { lat: 53.28, lon: -9.05 },
+      { lat: 53.28, lon: -9.04 },
+      { lat: 53.285, lon: -9.04 },
+      { lat: 53.285, lon: -9.05 },
+      { lat: 53.28, lon: -9.05 },
+    ];
+    const campus = yard.map((p) => ({ lat: p.lat + 0.01, lon: p.lon }));
+    const a = parseElements(
+      [
+        { type: "way", id: 10, geometry: yard, tags: { amenity: "school", name: "Merlin College Secondary School" } },
+        { type: "way", id: 11, center: { lat: 53.282, lon: -9.045 }, tags: { leisure: "pitch", sport: "gaelic_games" } },
+        { type: "way", id: 12, center: { lat: 53.283, lon: -9.044 }, tags: { leisure: "pitch", access: "yes" } },
+        { type: "node", id: 13, lat: 53.29, lon: -9.03, tags: { leisure: "picnic_table" } },
+        { type: "way", id: 14, center: { lat: 53.29, lon: -9.031 }, tags: { leisure: "pitch", access: "private" } },
+        { type: "way", id: 15, geometry: campus, tags: { amenity: "university", name: "University of Galway" } },
+        { type: "node", id: 16, lat: 53.292, lon: -9.045, tags: { leisure: "picnic_table" } },
+      ],
+      terryland,
+      1000,
+      "overpass",
+    );
+    // Inside the school only the pitch marked open survives; the open university keeps its picnic table.
+    expect(a.features.map((f) => f.id)).toEqual(["w12", "n13", "n16"]);
+  });
+});
+
+describe("closed grounds", () => {
+  it("knows inside from outside", () => {
+    const square = [
+      { lat: 0, lon: 0 },
+      { lat: 0, lon: 1 },
+      { lat: 1, lon: 1 },
+      { lat: 1, lon: 0 },
+    ];
+    expect(inRing({ lat: 0.5, lon: 0.5 }, square)).toBe(true);
+    expect(inRing({ lat: 1.5, lon: 0.5 }, square)).toBe(false);
   });
 });
 
