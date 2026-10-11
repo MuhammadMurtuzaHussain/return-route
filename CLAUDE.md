@@ -9,12 +9,18 @@ Entry for the **DEV Hacktoberfest Open-Source AI Challenge, Week 1: Touch Grass*
 - **Deadline:** Sun 11 Oct 2026 23:59 PDT = **Mon 12 Oct 07:59 Irish time**. The submission is a DEV post.
 - **Live:** https://return-route.onrender.com (Render free tier, sleeps when idle)
 - **Repo:** https://github.com/MuhammadMurtuzaHussain/return-route (public, MIT)
-- **Prize categories in view:** Gemma featured category, plus Render and Mastra.
+- **Prize categories in view:** Gemma and Render (featured), plus Mastra and Sentry Agent Tracing. You can win only once per challenge, so go deep on these four rather than wide.
+- **Decided against** (11 Oct, don't reopen without a new reason):
+  - **SerpApi**: Google Events, the only engine that fits, isn't on the free plan. Bing and Google Maps returned no usable events or return machines. The code is inert without a paid plan.
+  - **Tinker**: it can't fine-tune Gemma, and a fine-tuned model couldn't reach the phone or Ollama before the deadline.
+  - **DigitalOcean**: it serves only `gemma-4-31B-it`, with image input unconfirmed. It would only replace AI Studio.
+  - **ElevenLabs, MongoDB, Tiger Data**: a closed voice or shared storage would break the "stays on your device" story.
 
 ## Working rules
 
 - Commit and push every change straight to `main`. No branches, no PRs.
-- Run `pnpm test`, `pnpm lint` and `npx tsc --noEmit` before each commit.
+- Run `pnpm test`, `pnpm lint` and `npx tsc --noEmit` before each commit, and `pnpm build` when config, deps or server code changed.
+- Several Claude sessions work in this repo at once. Pull before large edits. Another session's `next dev` usually holds port 3100, so check end to end with the `return-route-prod` launch config (`next start` after `pnpm build`, auto port).
 - Never commit `.env.local` (it holds the AI Studio key). The Sentry DSN in `render.yaml` is fine: a DSN can only send events.
 - The name is **Return Route**, never "Re-turn" (that's Ireland's scheme operator). The app is unofficial.
 - Copy: plain words, sentence case, no em dashes, no exclamation marks. Money is always a **range** ("€0.88 to €3.15"). The viral 9GAG PS5 story is **unverified**: say so wherever it appears.
@@ -62,6 +68,28 @@ This split lets a 2B model on a phone do the job, and it's the story of the DEV 
 - **Optional services**, each off until its env var is set: Render Key Value (`REDIS_URL`), Sentry (`SENTRY_DSN`), SerpApi Google Events (`SERPAPI_KEY`; not on SerpApi's free plan, so rejections are cached for an hour).
 - **Client state** lives in localStorage (`src/lib/client/store.ts`): totals, goal, hotspot history, settings. There are no accounts.
 
+### Map data details (from debugging the cloud tier, 11 Oct)
+
+- Render's free tier sends traffic from IPs shared with many apps. Overpass, Nominatim and Open-Meteo answer them with 429 or 504, and local runs never show it. Sentry breadcrumbs show which services refused.
+- Tiles (`fetchAreaFromTiles`) read OpenFreeMap's z14 POI layer. The URL comes from the TileJSON at `tiles.openfreemap.org/planet` because it changes weekly. There are no benches or return machines; supermarkets become "shop" return points. In tests, a 30-minute area took about 1–2 s in Galway, Berlin, Copenhagen, Amsterdam and Vienna. The live site planned Vienna from tiles.
+- Overpass `fetchMachines` has a 6 s budget and runs alongside the tiles. Only CORS-friendly mirrors go in `BROWSER_MIRRORS` (overpass-api.de, lz4, z); private.coffee and kumi fail CORS. Both lists are tried twice.
+- Scoring caps street furniture: bins count up to 4 per cell and are only a stop inside a park, named after the park. Cities that map every bin otherwise rank "Bins (4)" first. Pitches for karting, golf and horses don't count.
+- Look-alike stops are named "north end of X" or "Pitch, 400 m north" (`distinctLabels`). The briefing uses `spokenNames` so it never says the same park twice.
+- Areas are cached for 12 h in Key Value. An area cached by old code keeps its old `areaFrom` until it expires.
+
+## Sentry and Render
+
+- **One Sentry SDK:** `@sentry/nextjs` v11 from the wizard (`sentry.*.config.ts`, `src/instrumentation*.ts`). Don't add `@mastra/sentry`: it pulls in `@sentry/node` v10, and two SDKs fight over OpenTelemetry. Traces and issues come from `src/lib/server/telemetry.ts`:
+  - a span per workflow step (map, weather and events overlap, which shows the parallelism);
+  - `gen_ai.invoke_agent` and `gen_ai.chat` spans with tokens;
+  - `reportGuard`, one issue per rule.
+- **Sentry privacy:** no prompts, coordinates, photos or typed text are sent, and Session Replay is removed. The DSN comes from `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN`, so forks don't report to our project.
+- **Mastra errors:** a failed step's error comes back as a plain object, not an Error. Read it with `failure()`.
+- **Render:** Blueprint-managed (`render.yaml`), region oregon, free plan, so a cold start after idle takes about 50 s.
+  - Key Value `return-route-cache` (Valkey, free, internal only) feeds `REDIS_URL`.
+  - A Blueprint sync never prompts for new `sync: false` secrets. Add them on the service's Environment page.
+  - `GET /api/status` → `services: { cache, events, tracing }` shows what's switched on.
+
 ## Design system: waymark and voucher
 
 Built on an Irish waymarked trail post (black post, yellow arrow) and a return machine's thermal voucher. Tokens live in `src/app/globals.css`.
@@ -88,6 +116,17 @@ Built on an Irish waymarked trail post (black post, yellow arrow) and a return m
 ## Open items (not confirmed done as of 11 Oct)
 
 - [ ] Edge tier on the Android phone over the Render URL: download, plan and haul read, with timings for the post.
-- [ ] Haul eval: put real photos and true counts in `eval/hauls/`, then run `pnpm eval` per tier.
+- [ ] Haul eval: put real photos and true counts in `eval/hauls/`, then run `pnpm eval` per tier. Then tune and measure before and after:
+  - temperature 0 for the haul read (still 0.2 in `src/mastra/gemma.ts`);
+  - have Gemma note where each container is before counting;
+  - on the cloud tier, read twice and keep the middle count;
+  - a "spread them out in one layer" hint on the camera screen.
+- [ ] Sentry: resolve the three issues tagged `edge` ("stop that wasn't on the map", "return point…", "none of Gemma's stops…"). They were triggered on purpose as a test on 11 Oct; the `local` and `cloud` ones are real.
+- [ ] Cloud tier, not yet checked by hand: the Google Maps hand-off, and the haul photo flow on Render.
+- [ ] Screenshots for the post's partner sections:
+  - a Sentry trace showing the parallel steps, and the guard issues broken down by tier;
+  - Render events and Key Value;
+  - the Mastra workflow;
+  - the `pnpm eval:plan` before and after table.
 - [ ] Write the DEV post (tag `#hf26challenge`, AI disclosure). Lead with the "Gemma judges, code guarantees" split, the eval numbers and the real €0.30 voucher. Footage is in `../Video for return-route/`.
 - [ ] Decide on the untracked Sentry wizard scaffolding (`src/app/sentry-example-page/`, `src/app/api/sentry-example-api/`, `.mcp.json`). Probably delete or gitignore it rather than ship it.
