@@ -3,6 +3,7 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
+import { privacy } from "./lib/privacy";
 
 Sentry.init({
   // Off unless set, so forks don't report to our project.
@@ -12,6 +13,9 @@ Sentry.init({
   tracesSampleRate: 1,
 
   // No Session Replay: the screen shows the walker's map, and that stays theirs.
+
+  // No coordinates or IPs: URLs lose their query strings and cache keys their contents (src/lib/privacy.ts).
+  ...privacy,
 
   // Turns off collection of data that could identify users. Adjust per category:
   // https://docs.sentry.io/platforms/javascript/configuration/options/#dataCollection
