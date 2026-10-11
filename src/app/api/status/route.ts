@@ -1,4 +1,6 @@
 import { getModelConfig } from "@/mastra/model";
+import { kvBackend } from "@/lib/server/kv";
+import { sentryEnabled } from "@/lib/server/telemetry";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,5 +20,12 @@ export async function GET() {
   } else {
     ready = Boolean(process.env.GOOGLE_GENERATIVE_AI_API_KEY);
   }
-  return Response.json({ tier, model: modelId, ready, edgeModel: process.env.NEXT_PUBLIC_EDGE_MODEL ?? "onnx-community/gemma-4-E2B-it-ONNX" });
+  return Response.json({
+    tier,
+    model: modelId,
+    ready,
+    edgeModel: process.env.NEXT_PUBLIC_EDGE_MODEL ?? "onnx-community/gemma-4-E2B-it-ONNX",
+    // Which optional services this server has switched on.
+    services: { cache: kvBackend(), events: Boolean(process.env.SERPAPI_KEY), tracing: sentryEnabled() },
+  });
 }

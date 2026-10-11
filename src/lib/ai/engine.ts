@@ -9,7 +9,7 @@ import { getScheme, type Scheme } from "../countries";
 import type { PlanResult, Prepared } from "../plan/pipeline";
 import { extractJson, guardPostLine, haulTotals, type HaulTotals } from "./guard";
 import { HAUL_SYSTEM, PLANNER_SYSTEM, POST_SYSTEM, haulPrompt, plannerPrompt, postPrompt, type PostFacts } from "./prompts";
-import { haulSchema, planPickSchema, type HaulReading, type PlanPick, type Tier } from "./schema";
+import { EDGE_MODEL_LABEL, haulSchema, planPickSchema, type HaulReading, type PlanPick, type Tier } from "./schema";
 import type { Outbound } from "./edge.worker";
 
 export type PlanInput = {
@@ -71,7 +71,7 @@ export async function draftPostLine(facts: PostFacts, onEdge: boolean): Promise<
 // ---------- edge tier ----------
 
 export const EDGE_MODEL = process.env.NEXT_PUBLIC_EDGE_MODEL ?? "onnx-community/gemma-4-E2B-it-ONNX";
-export const EDGE_MODEL_LABEL = "Gemma 4 E2B";
+export { EDGE_MODEL_LABEL };
 
 export type EdgeSupport = { ok: true; dtype: "q4f16" | "q4" } | { ok: false; reason: string };
 

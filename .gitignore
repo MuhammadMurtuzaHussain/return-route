@@ -43,3 +43,6 @@ next-env.d.ts
 
 # local tooling
 .claude/
+
+# Sentry Config File
+.env.sentry-build-plugin

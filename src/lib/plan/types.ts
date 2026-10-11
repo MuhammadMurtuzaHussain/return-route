@@ -61,8 +61,13 @@ export type Weather = {
   summary: string;
 };
 
+/** Something on in town (a match, a gig, a festival), placed on the map. */
+export type LocalEvent = LatLng & { title: string; venue: string; day: "today" | "yesterday" };
+
 export type Context = {
   weather: Weather | null;
+  /** Today's (and, when cached, yesterday's) events near the walk. */
+  events?: LocalEvent[];
   /** 0 = Sunday … 6 = Saturday, local time. */
   weekday: number;
   /** id → multiplier learnt from this person's past hauls. */

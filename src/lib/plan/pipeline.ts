@@ -7,7 +7,7 @@ import { haversine } from "./geo";
 import type { RouteGeometry } from "./route";
 import { KIND_LABEL, buildHotspots } from "./score";
 import { candidateReturnPoints, chooseRoute, reachable, stopsFor } from "./select";
-import type { AreaData, Context, Hotspot, LatLng, ReturnPoint, Weather } from "./types";
+import type { AreaData, Context, Hotspot, LatLng, LocalEvent, ReturnPoint, Weather } from "./types";
 
 // The two deterministic halves of planning a walk, either side of Gemma.
 // Pure functions, so the server (cloud and laptop tiers) and the browser
@@ -28,6 +28,7 @@ export type Prepared = {
   request: PlanRequest;
   scheme: Scheme;
   weather: Weather | null;
+  events: LocalEvent[];
   areaFrom: AreaData["from"];
   hotspots: (Hotspot & { distM: number })[];
   returnPoints: (ReturnPoint & { distM: number })[];
@@ -37,8 +38,8 @@ export type Prepared = {
   startNear: string | null;
 };
 
-export function prepare(area: AreaData, req: PlanRequest, scheme: Scheme, weather: Weather | null): Prepared {
-  const ctx: Context = { weather, weekday: req.weekday, history: req.history };
+export function prepare(area: AreaData, req: PlanRequest, scheme: Scheme, weather: Weather | null, events: LocalEvent[] = []): Prepared {
+  const ctx: Context = { weather, weekday: req.weekday, history: req.history, events };
   const all = buildHotspots(area, ctx);
   const near = reachable(req.start, req.minutes, all).slice(0, 12);
   const rps = candidateReturnPoints(req.start, area.returnPoints);
@@ -63,6 +64,7 @@ export function prepare(area: AreaData, req: PlanRequest, scheme: Scheme, weathe
     request: req,
     scheme,
     weather,
+    events,
     areaFrom: area.from,
     hotspots,
     returnPoints,

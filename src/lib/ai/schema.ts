@@ -30,6 +30,8 @@ export type HaulReading = z.infer<typeof haulSchema>;
 
 export type Tier = "edge" | "local" | "cloud";
 
+export const EDGE_MODEL_LABEL = "Gemma 4 E2B";
+
 export const TIER_LABEL: Record<Tier, string> = {
   edge: "On this phone",
   local: "On my laptop",

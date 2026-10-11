@@ -69,6 +69,15 @@ export function dayFactor(ctx: Context): { factor: number; reason?: string } {
   return { factor: 1 };
 }
 
+/** Within this distance of a venue, a hotspot picks up the event's crowd. */
+export const EVENT_RADIUS_M = 600;
+
+export function eventFactor(at: LatLng, ctx: Context): { factor: number; reason?: string } {
+  const ev = ctx.events?.find((e) => haversine(at, e) <= EVENT_RADIUS_M);
+  if (!ev) return { factor: 1 };
+  return { factor: ev.day === "yesterday" ? 1.5 : 1.3, reason: `${ev.title} at ${ev.venue} ${ev.day}` };
+}
+
 export function buildHotspots(area: AreaData, ctx: Context): Hotspot[] {
   const cells = new Map<string, { pts: LatLng[]; kinds: Partial<Record<FeatureKind, number>>; names: string[] }>();
   for (const f of area.features) {
@@ -106,7 +115,8 @@ export function buildHotspots(area: AreaData, ctx: Context): Hotspot[] {
     const sourceFactor = 1 + 0.12 * Math.min(near + offl, 5);
     const learnt = ctx.history?.[id] ?? 1;
 
-    const expected = base * sourceFactor * wf.factor * df.factor * learnt;
+    const ef = eventFactor(at, ctx);
+    const expected = base * sourceFactor * wf.factor * df.factor * ef.factor * learnt;
 
     const reasons: string[] = [];
     const top = (Object.entries(c.kinds) as [FeatureKind, number][]).sort((a, b) => PRIOR[b[0]] * b[1] - PRIOR[a[0]] * a[1]);
@@ -115,6 +125,7 @@ export function buildHotspots(area: AreaData, ctx: Context): Hotspot[] {
     else if (near) reasons.push(`${near} shop${near > 1 ? "s" : ""} or takeaway${near > 1 ? "s" : ""} nearby`);
     if (wf.reason) reasons.push(wf.reason);
     if (df.reason) reasons.push(df.reason);
+    if (ef.reason) reasons.push(ef.reason);
     if (learnt > 1.1) reasons.push("good haul here before");
     if (learnt < 0.9) reasons.push("quiet last time");
 

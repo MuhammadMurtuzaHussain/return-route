@@ -16,7 +16,7 @@ const factsSchema = z.object({
 
 // Gemma drafts one line for the walker's post. The counts and money are added in code.
 export async function POST(req: Request) {
-  if (rateLimited(clientIp(req), 6)) return Response.json({ error: "rate_limited" }, { status: 429 });
+  if (await rateLimited(clientIp(req), 6, "post")) return Response.json({ error: "rate_limited" }, { status: 429 });
   const parsed = factsSchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return Response.json({ error: "bad_request" }, { status: 400 });
   try {

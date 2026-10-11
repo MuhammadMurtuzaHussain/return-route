@@ -23,3 +23,28 @@ services:
         value: onnx-community/gemma-4-E2B-it-ONNX
       - key: SITE_URL
         value: https://return-route.onrender.com
+      # Shared cache for Overpass areas, today's events and the rate limits.
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: return-route-cache
+          property: connectionString
+      # Sentry: traces of every plan and Gemma call, and an issue whenever the guard overrules Gemma.
+      # A DSN only lets you send events, so it is fine in the repo.
+      - key: SENTRY_DSN
+        value: https://993f4d4277baf9b811750c265de6b040@o4512237895417856.ingest.de.sentry.io/4512237905444944
+      - key: NEXT_PUBLIC_SENTRY_DSN
+        value: https://993f4d4277baf9b811750c265de6b040@o4512237895417856.ingest.de.sentry.io/4512237905444944
+      # Optional: readable stack traces (source map upload at build time).
+      - key: SENTRY_AUTH_TOKEN
+        sync: false
+      # Optional: what's on in town today (Google Events via SerpApi).
+      - key: SERPAPI_KEY
+        sync: false
+
+  # Render Key Value (Valkey). Internal only: nothing outside Render can reach it.
+  - type: keyvalue
+    name: return-route-cache
+    plan: free
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []

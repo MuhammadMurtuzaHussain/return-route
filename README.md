@@ -30,7 +30,8 @@ That split is what lets a 2B model on a phone do the same job as a 26B model in 
 Plan:  where you are + how long + what you asked for
   → OpenStreetMap (Overpass)   picnic tables, pitches, benches, off-licences, return machines, supermarkets
   → Open-Meteo                 yesterday's weather (a warm evening leaves cans behind)
-  → score                      hotspot priors × weather × day of week × your own past hauls
+  → SerpApi (optional)         what's on in town today: a match or a gig leaves cans behind too
+  → score                      hotspot priors × weather × day of week × events × your own past hauls
   → Gemma                      picks and orders 2–3 stops, one line each on why
   → guard                      real places only, fits your time
   → Valhalla                   walking route through the stops to the return point
@@ -39,9 +40,17 @@ Plan:  where you are + how long + what you asked for
 Haul:  photo → Gemma (vision) → items → deposit table → refund
 ```
 
-On the server, planning is a [Mastra](https://mastra.ai) workflow ([src/mastra/workflows/planWalk.ts](src/mastra/workflows/planWalk.ts)). On the phone tier the same pure-TypeScript steps run around Gemma in a Web Worker ([src/lib/ai/edge.worker.ts](src/lib/ai/edge.worker.ts)).
+On the server, planning is a [Mastra](https://mastra.ai) workflow ([src/mastra/workflows/planWalk.ts](src/mastra/workflows/planWalk.ts)): `place → map ‖ weather ‖ events → assemble → pick → route`, with the map, weather and events fetched in parallel. The phone tier runs the first half of the same workflow on the server, then Gemma picks in a Web Worker on the phone ([src/lib/ai/edge.worker.ts](src/lib/ai/edge.worker.ts)) and the server guards and routes the result.
 
 There is no live litter feed anywhere, so hotspot estimates start as honest priors. Each walk you log shifts the estimate for the stops you visited, and that history stays on your device.
+
+## Optional services
+
+Each one is off until its environment variable is set, and the app works the same without it.
+
+- **Render Key Value** (`REDIS_URL`): one shared cache for Overpass areas, today's events and the rate limits, so a busy Overpass server or a restart doesn't cost a plan. [render.yaml](render.yaml) creates it.
+- **Sentry** (`SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`): each plan is a trace with a span per workflow step (map, weather and events overlap because they run in parallel) and a `gen_ai` agent span per Gemma call with the model, tier, latency and tokens. Every time the guard overrules Gemma it's an issue tagged with the tier and model, including the phone's picks, which are guarded on the server. No prompts, coordinates, photos or anything the walker typed are sent, and there is no session replay. ([src/lib/server/telemetry.ts](src/lib/server/telemetry.ts))
+- **SerpApi** (`SERPAPI_KEY`): today's events in town from Google Events. Only the town's name is sent. Venues are placed on the map by name against OpenStreetMap, and stops near one get a boost and a reason ("Galway United vs Derry City at Eamonn Deacy Park today"). ([src/lib/server/events.ts](src/lib/server/events.ts))
 
 ## Run it
 
@@ -63,6 +72,7 @@ pnpm dev                       # http://localhost:3100
 - Map tiles from [OpenFreeMap](https://openfreemap.org).
 - Routing by [Valhalla](https://github.com/valhalla/valhalla) on the FOSSGIS server.
 - Weather from [Open-Meteo](https://open-meteo.com).
+- Events from Google Events via [SerpApi](https://serpapi.com), when a key is set.
 - Deposit rates come from [re-turn.ie](https://re-turn.ie) and TOMRA's 2026 overview.
 - `data/galway.json` is an OpenStreetMap snapshot, so the demo works when Overpass is busy.
 - The demo's sample haul photo (`public/demo/haul.jpg`) was generated with [FLUX.1-dev](https://huggingface.co/black-forest-labs/FLUX.1-dev) on its Hugging Face Space, with deposit-mark stickers added. Swap in a real photo any time.

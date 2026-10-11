@@ -2,6 +2,8 @@ import { guardPlan } from "@/lib/ai/guard";
 import { planPickSchema } from "@/lib/ai/schema";
 import { finish, waypoints, type Prepared } from "@/lib/plan/pipeline";
 import { routeWalk } from "@/lib/plan/route";
+import { reportGuard } from "@/lib/server/telemetry";
+import { EDGE_MODEL_LABEL } from "@/lib/ai/schema";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,6 +24,8 @@ export async function POST(req: Request) {
     fallback: p.fallback,
     defaultTitle: p.defaultTitle,
   });
+  // The phone's Gemma never talks to the server, but its picks are guarded here, so its slips are counted too.
+  reportGuard("plan", guarded.flags, { tier: "edge", model: EDGE_MODEL_LABEL });
   const route = await routeWalk(waypoints(p, guarded));
   return Response.json(finish(p, guarded, route));
 }

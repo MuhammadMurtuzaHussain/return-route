@@ -5,12 +5,13 @@ import { DETOUR, haversine } from "../plan/geo";
 import { fetchArea } from "../plan/overpass";
 import { budgetM } from "../plan/select";
 import type { AreaData, LatLng } from "../plan/types";
+import { kvGet, kvSet } from "./kv";
 
-// Map data with two safety nets: an in-memory cache (one Overpass call per
-// neighbourhood per hour) and saved snapshots for the demo cities.
+// Map data with two safety nets: a shared cache (one Overpass call per
+// neighbourhood every 12 hours, in Render Key Value when it is configured) and
+// saved snapshots for the demo cities.
 
-const cache = new Map<string, { at: number; area: AreaData }>();
-const TTL = 60 * 60 * 1000;
+const AREA_TTL_SEC = 12 * 60 * 60;
 
 let snapshots: AreaData[] | null = null;
 function loadSnapshots(): AreaData[] {
@@ -36,9 +37,9 @@ export async function loadArea(start: LatLng, minutes: number): Promise<AreaData
   const radius = radiusFor(minutes);
   // Snap the centre to a ~1 km grid so a walker moving down the street hits the cache.
   const center = { lat: Math.round(start.lat * 100) / 100, lon: Math.round(start.lon * 100) / 100 };
-  const key = `${center.lat},${center.lon},${radius}`;
-  const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < TTL) return hit.area;
+  const key = `area:${center.lat},${center.lon},${radius}`;
+  const hit = await kvGet<AreaData>(key);
+  if (hit) return hit;
 
   // Snapshots first when we are inside one: instant, and kind to the public Overpass servers.
   const snap = loadSnapshots().find((s) => haversine(s.center, start) + radius * 0.6 <= s.radiusM);
@@ -46,7 +47,7 @@ export async function loadArea(start: LatLng, minutes: number): Promise<AreaData
 
   try {
     const area = await fetchArea(center, radius + 600);
-    cache.set(key, { at: Date.now(), area });
+    await kvSet(key, area, AREA_TTL_SEC);
     return area;
   } catch (e) {
     const near = loadSnapshots().find((s) => haversine(s.center, start) <= s.radiusM);
@@ -55,23 +56,23 @@ export async function loadArea(start: LatLng, minutes: number): Promise<AreaData
   }
 }
 
-const countryCache = new Map<string, string>();
+export type Place = { country: string; town: string | null };
 
-/** ISO country code for a point, via OpenStreetMap's Nominatim. */
-export async function detectCountry(p: LatLng): Promise<string> {
-  const key = `${p.lat.toFixed(1)},${p.lon.toFixed(1)}`;
-  const hit = countryCache.get(key);
+/** Country code and town for a point, via OpenStreetMap's Nominatim. Cached for a month. */
+export async function detectPlace(p: LatLng): Promise<Place> {
+  const key = `place:${p.lat.toFixed(2)},${p.lon.toFixed(2)}`;
+  const hit = await kvGet<Place>(key);
   if (hit) return hit;
   try {
     const res = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=3&lat=${p.lat.toFixed(3)}&lon=${p.lon.toFixed(3)}`,
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&lat=${p.lat.toFixed(3)}&lon=${p.lon.toFixed(3)}`,
       { headers: { "User-Agent": "ReturnRoute/0.1 (+https://github.com/MuhammadMurtuzaHussain/return-route)" }, signal: AbortSignal.timeout(6000) },
     );
-    const j = (await res.json()) as { address?: { country_code?: string } };
-    const code = j.address?.country_code?.toLowerCase() ?? DEFAULT_COUNTRY;
-    countryCache.set(key, code);
-    return code;
+    const a = ((await res.json()) as { address?: Record<string, string> }).address ?? {};
+    const place = { country: a.country_code?.toLowerCase() ?? DEFAULT_COUNTRY, town: a.city ?? a.town ?? a.village ?? a.municipality ?? null };
+    await kvSet(key, place, 30 * 24 * 60 * 60);
+    return place;
   } catch {
-    return DEFAULT_COUNTRY;
+    return { country: DEFAULT_COUNTRY, town: null };
   }
 }

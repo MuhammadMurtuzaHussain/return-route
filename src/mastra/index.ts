@@ -1,8 +1,8 @@
 import { Mastra } from "@mastra/core/mastra";
-import { haulAgent, plannerAgent } from "./agents";
-import { planWalkWorkflow } from "./workflows/planWalk";
+import { haulAgent, plannerAgent, postAgent } from "./agents";
+import { planWalkWorkflow, prepareWalkWorkflow } from "./workflows/planWalk";
 
 export const mastra = new Mastra({
-  agents: { plannerAgent, haulAgent },
-  workflows: { planWalkWorkflow },
+  agents: { plannerAgent, haulAgent, postAgent },
+  workflows: { planWalkWorkflow, prepareWalkWorkflow },
 });

@@ -12,7 +12,7 @@ const MAX_BYTES = 4 * 1024 * 1024;
 // Read a haul photo with Gemma on the server (laptop or cloud tier).
 // The phone tier never calls this: the photo stays on the phone.
 export async function POST(req: Request) {
-  if (rateLimited(clientIp(req), 6)) return Response.json({ error: "rate_limited" }, { status: 429 });
+  if (await rateLimited(clientIp(req), 6, "haul")) return Response.json({ error: "rate_limited" }, { status: 429 });
   const form = await req.formData().catch(() => null);
   const file = form?.get("photo");
   if (!(file instanceof File) || !file.type.startsWith("image/")) return Response.json({ error: "bad_request" }, { status: 400 });
