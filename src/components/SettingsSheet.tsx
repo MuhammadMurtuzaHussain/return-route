@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Cloud, DeviceMobile, Laptop, X } from "@phosphor-icons/react";
+import { Cloud, DeviceMobile, Laptop, Monitor, Moon, Sun, X } from "@phosphor-icons/react";
 import { SCHEMES } from "@/lib/countries";
 import { EDGE_MODEL_LABEL, edge, edgeSupport, type EdgeSupport } from "@/lib/ai/engine";
 import type { Goal, Settings } from "@/lib/client/store";
 import type { Tier } from "@/lib/ai/schema";
+import { setTheme, useTheme, type Theme } from "@/lib/client/theme";
 import { useDialog } from "@/lib/client/useDialog";
 import { Button } from "./ui";
 
@@ -37,6 +38,7 @@ export function SettingsSheet({
   const [loading, setLoading] = useState(false);
   const [edgeError, setEdgeError] = useState<string | null>(null);
   const ref = useDialog<HTMLDivElement>(open, onClose);
+  const theme = useTheme();
 
   useEffect(() => {
     if (open && !support) edgeSupport().then(setSupport);
@@ -142,6 +144,31 @@ export function SettingsSheet({
                     {loading ? "Loading Gemma…" : edge.loaded ? "Use it" : "Download and use"}
                   </Button>
                 )}
+              </div>
+            </section>
+
+            <section className="mt-8 flex flex-col gap-3">
+              <h3 id="theme-label" className="font-medium">
+                Appearance
+              </h3>
+              <div role="group" aria-labelledby="theme-label" className="grid grid-cols-3 gap-1 rounded-xl border border-line bg-surface p-1 text-[14px] font-semibold">
+                {(
+                  [
+                    ["system", "System", Monitor],
+                    ["light", "Light", Sun],
+                    ["dark", "Dark", Moon],
+                  ] as [Theme, string, typeof Sun][]
+                ).map(([t, label, Icon]) => (
+                  <button
+                    key={t}
+                    onClick={() => setTheme(t)}
+                    aria-pressed={theme === t}
+                    className={`inline-flex min-h-10 items-center justify-center gap-1.5 rounded-lg transition ${theme === t ? "bg-mark text-on-mark" : "text-muted hover:text-ink"}`}
+                  >
+                    <Icon size={16} weight={theme === t ? "fill" : "regular"} />
+                    {label}
+                  </button>
+                ))}
               </div>
             </section>
 

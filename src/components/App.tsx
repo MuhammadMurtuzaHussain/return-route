@@ -16,6 +16,7 @@ import {
 } from "@/lib/ai/engine";
 import type { PostFacts } from "@/lib/ai/prompts";
 import { DEFAULT_COUNTRY, getScheme } from "@/lib/countries";
+import { useDark } from "@/lib/client/theme";
 import { DEFAULT_GOAL, DEFAULT_SETTINGS, DEFAULT_TOTALS, learn, useStored, type Mode, type Totals } from "@/lib/client/store";
 import { DEMO_CAUSE, DEMO_INTENT, DEMO_MINUTES, DEMO_START, DEMO_STEPS, RECORDED_READING, samplePhoto } from "@/lib/demo";
 import recordedPlan from "@/lib/demo/plan.json";
@@ -86,12 +87,13 @@ export function App() {
 
   // Giving turns the whole app green: cause mode, and the thank-you after any donation.
   const giving = mode === "cause" || (screen === "logged" && !!lastHaul?.donated);
+  const dark = useDark();
   useEffect(() => {
     document.documentElement.dataset.mode = giving ? "cause" : "earn";
     // The phone's browser bar follows the page colour.
     const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
     document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((m) => (m.content = bg));
-  }, [giving]);
+  }, [giving, dark]);
 
   // The phone tier needs the model in memory; after a reload, fall back until it is reloaded.
   const edgeActive = settings.engine === "edge" && edge.loaded;

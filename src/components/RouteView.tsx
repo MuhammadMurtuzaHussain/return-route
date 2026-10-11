@@ -6,6 +6,7 @@ import { Camera, DownloadSimple, NavigationArrow, SpeakerHigh, Stop } from "@pho
 import { formatMoney } from "@/lib/countries";
 import { toGpx } from "@/lib/plan/export";
 import type { Planned } from "@/lib/ai/engine";
+import { useDark } from "@/lib/client/theme";
 import { RouteMap } from "./RouteMap";
 import { LinkButton, Waymark } from "./ui";
 
@@ -59,6 +60,7 @@ export function RouteView({
   const reduce = useReducedMotion();
   const [speaking, setSpeaking] = useState(false);
   const [canSpeak, setCanSpeak] = useState(false);
+  const dark = useDark();
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- feature detection after mount
     setCanSpeak("speechSynthesis" in window);
@@ -82,7 +84,7 @@ export function RouteView({
 
   return (
     <div className="flex flex-col">
-      <RouteMap plan={plan} walking={walking} onWalked={onWalked} className="-mx-4 h-[52dvh] min-h-72 bg-sunk" />
+      <RouteMap key={dark ? "dark" : "light"} plan={plan} walking={walking} onWalked={onWalked} className="-mx-4 h-[52dvh] min-h-72 bg-sunk" />
 
       <div className="relative -mx-4 -mt-6 rounded-t-[20px] bg-bg px-4 pt-6">
         <motion.header {...rise(0)} className="flex flex-col gap-3">

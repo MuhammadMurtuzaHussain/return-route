@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Map as MlMap } from "maplibre-gl";
 import type { PlanResult } from "@/lib/plan/pipeline";
+import { isDark } from "@/lib/client/theme";
 
 // MapLibre + OpenFreeMap: open source renderer, open OpenStreetMap tiles, no key.
 
@@ -11,11 +12,6 @@ const STYLE = {
   dark: "https://tiles.openfreemap.org/styles/dark",
 };
 
-function prefersDark() {
-  const forced = document.documentElement.dataset.theme;
-  if (forced) return forced === "dark";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches;
-}
 
 function marker(label: string, kind: "start" | "stop" | "end") {
   const el = document.createElement("div");
@@ -62,7 +58,7 @@ export function RouteMap({ plan, className, walking = false, onWalked }: { plan:
     (async () => {
       const maplibre = (await import("maplibre-gl")).default;
       if (cancelled || !box.current) return;
-      const dark = prefersDark();
+      const dark = isDark();
       const css = getComputedStyle(document.documentElement);
       const line = css.getPropertyValue("--mark").trim() || "#e5b53b";
       const casing = css.getPropertyValue("--post").trim() || "#1d1d1a";
