@@ -163,12 +163,8 @@ Facts from the walk, for the post (times are Irish time):
   - on the cloud tier, read twice and keep the middle count;
   - a "spread them out in one layer" hint on the camera screen.
 - [ ] Sentry: resolve the three issues tagged `edge` ("stop that wasn't on the map", "return point…", "none of Gemma's stops…"). They were triggered on purpose as a test on 11 Oct; the `local` and `cloud` ones are real.
-- [ ] Cloud tier, not yet checked by hand: the Google Maps hand-off, and the haul photo flow on Render.
-- [ ] Screenshots for the post's partner sections:
-  - a Sentry trace showing the parallel steps, and the guard issues broken down by tier;
-  - Render events and Key Value;
-  - the Mastra workflow;
-  - the `pnpm eval:plan` before and after table.
+- [ ] Cloud tier, not yet checked by hand: the Google Maps hand-off. (The haul photo flow on Render works: sample photo read in 14.6 s on 11 Oct late.)
+- [x] Screenshots for the post: in `docs/post/` (Sentry issues, trace, agent view and Overpass breadcrumbs; Render deploys and Blueprint; the Mastra workflow shows in the Sentry trace; the eval is a table in the post). Crop Sentry shots so no IPs or coordinates show.
 - [ ] Publish the DEV post (draft in `../return-route-dev-post.md`) (tag `#hf26challenge`, AI disclosure). Lead with the "Gemma judges, code guarantees" split, the eval numbers and the real €0.30 voucher. Embed the full-walk video and use the reel for socials (`../return-route-videos/out/`); the walk facts above have the story.
 - [x] Leave out stops inside private grounds (done 11 Oct late, see progress log).
 - [ ] The 9GAG copy doesn't follow the "unverified" rule above yet: `Welcome.tsx` ("Someone in Germany posted on 9GAG…"), `Voucher.tsx` and `Logged.tsx` ("The 9GAG walker did 2,000").
