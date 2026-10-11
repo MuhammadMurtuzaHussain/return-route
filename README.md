@@ -50,7 +50,7 @@ Each one is off until its environment variable is set, and the app works the sam
 
 - **Render Key Value** (`REDIS_URL`): one shared cache for Overpass areas, today's events and the rate limits, so a busy Overpass server or a restart doesn't cost a plan. [render.yaml](render.yaml) creates it.
 - **Sentry** (`SENTRY_DSN`, `NEXT_PUBLIC_SENTRY_DSN`): each plan is a trace with a span per workflow step (map, weather and events overlap because they run in parallel) and a `gen_ai` agent span per Gemma call with the model, tier, latency and tokens. Every time the guard overrules Gemma it's an issue tagged with the tier and model, including the phone's picks, which are guarded on the server. No prompts, coordinates, photos or anything the walker typed are sent, and there is no session replay. ([src/lib/server/telemetry.ts](src/lib/server/telemetry.ts))
-- **SerpApi** (`SERPAPI_KEY`): today's events in town from Google Events. Only the town's name is sent. Venues are placed on the map by name against OpenStreetMap, and stops near one get a boost and a reason ("Galway United vs Derry City at Eamonn Deacy Park today"). ([src/lib/server/events.ts](src/lib/server/events.ts))
+- **SerpApi** (`SERPAPI_KEY`, on a plan that includes the Google Events engine): today's events in town from Google Events. Only the town's name is sent. Venues are placed on the map by name against OpenStreetMap, and stops near one get a boost and a reason ("Galway United vs Derry City at Eamonn Deacy Park today"). ([src/lib/server/events.ts](src/lib/server/events.ts))
 
 ## Run it
 

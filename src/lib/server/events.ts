@@ -5,8 +5,9 @@ import { kvGet, kvSet } from "./kv";
 
 // What's on in town today, from Google Events through SerpApi. A match, a gig
 // or a festival leaves cans behind, and no map knows about it. Only the town's
-// name is sent, never the walker's position. Without SERPAPI_KEY this returns
-// nothing and planning carries on as before.
+// name is sent, never the walker's position. Without SERPAPI_KEY (or on a
+// SerpApi plan without the Google Events engine) this returns nothing and
+// planning carries on as before.
 
 type Listed = { title: string; venue: string | null; address: string[]; when: string };
 type SerpEvent = { title?: string; date?: { when?: string }; address?: string[]; venue?: { name?: string } };
@@ -37,7 +38,9 @@ export async function eventsToday(town: string | null, country: string): Promise
     await kvSet(k(day()), today, 36 * 60 * 60);
     return { today, yesterday };
   } catch (e) {
+    // Don't spend a search on every plan while the key or plan is wrong: try again in an hour.
     console.warn("[events]", String(e));
+    await kvSet(k(day()), [], 60 * 60);
     return { today: [], yesterday };
   }
 }
